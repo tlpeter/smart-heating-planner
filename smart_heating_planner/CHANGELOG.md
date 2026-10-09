@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0
+## 0.1.0-dev
 
 - First version, **watch only**: the app shows what it would do and sends nothing.
 - Week schedule with switch points (time, temperature, preheat).

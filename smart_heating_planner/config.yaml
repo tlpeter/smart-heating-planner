@@ -1,5 +1,5 @@
-name: Smart Heating Planner
-version: "0.1.0"
+name: Smart Heating Planner (dev)
+version: "0.1.0-dev"
 slug: smart_heating_planner
 description: "TEST VERSION, watch only: heats on a schedule and on who is home (tado + Heatmeister)."
 url: https://github.com/tlpeter/smart-heating-planner
@@ -12,7 +12,7 @@ boot: auto
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:radiator
-panel_title: Smart Heating
+panel_title: Smart Heating (dev)
 homeassistant_api: true
 options:
   refresh_seconds: 30
