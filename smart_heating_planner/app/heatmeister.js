@@ -79,6 +79,20 @@ function isRunning(fanOn, fanSpeed, control) {
   return RUNNING.has(control);
 }
 
+// The fan speed in steps of 10 %: 1-10 % is step 1, ..., 91-100 % is step 10.
+// 0 (or no speed) is step 0. The page spins the fan icon faster per step.
+function fanStep(fanSpeed) {
+  const s = Number(fanSpeed);
+  if (fanSpeed === null || fanSpeed === undefined || !Number.isFinite(s) || s <= 0) return 0;
+  return Math.min(10, Math.ceil(s / 10));
+}
+
+// Every entity id of one HeatMeister (to get told when one changes).
+function entityIds(states, prefix) {
+  const dev = discover(states).find((d) => d.prefix === prefix);
+  return dev ? Object.values(dev.all || {}).flat() : [];
+}
+
 // What one HeatMeister is doing now.
 function read(states, prefix) {
   const byId = new Map((states || []).map((s) => [s.entity_id, s]));
@@ -100,6 +114,7 @@ function read(states, prefix) {
     control_state: control,
     running: isRunning(val('fan_on'), num(val('fan_speed')), control),
     fan_speed: num(val('fan_speed')),
+    fan_step: fanStep(num(val('fan_speed'))),
     inlet: num(val('inlet')),
     outlet: num(val('outlet')),
     delta: num(val('delta')),
@@ -131,4 +146,4 @@ function shouldPublish({ value, last, now, intervalSeconds, targetChanged = fals
   return now - last.at >= intervalSeconds * 1000 - 500; // half a second slack for timer jitter
 }
 
-module.exports = { discover, read, nameFrom, defaultTopic, shouldPublish, PARTS, RUNNING };
+module.exports = { discover, read, fanStep, entityIds, nameFrom, defaultTopic, shouldPublish, PARTS, RUNNING };

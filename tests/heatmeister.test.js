@@ -129,3 +129,26 @@ test('a new thermostat setpoint sends right away, also when the room temperature
   assert.equal(hm.shouldPublish({ value: 21.4, last, now, intervalSeconds: 15 }), false);
   assert.equal(hm.shouldPublish({ value: 21.4, last, now, intervalSeconds: 15, targetChanged: true }), true);
 });
+
+test('fan step: every 10 % of fan speed is one step (the icon turns faster per step)', () => {
+  const { fanStep } = hm;
+  assert.equal(fanStep(null), 0);
+  assert.equal(fanStep(0), 0);
+  assert.equal(fanStep(1), 1);
+  assert.equal(fanStep(10), 1);
+  assert.equal(fanStep(11), 2);
+  assert.equal(fanStep(55), 6);
+  assert.equal(fanStep(90), 9);
+  assert.equal(fanStep(91), 10);
+  assert.equal(fanStep(100), 10);
+  assert.equal(fanStep(150), 10);
+});
+
+test('entity ids of one HeatMeister: also the "_2" ones, not the WiFi values', () => {
+  const { entityIds } = hm;
+  const ids = entityIds(fakeHa.states(), 'heatbooster_woonkamer_voor');
+  assert.ok(ids.includes('sensor.heatbooster_woonkamer_voor_temp_inlet_2'));
+  assert.ok(ids.includes('sensor.heatbooster_woonkamer_voor_fan_control_state'));
+  assert.ok(!ids.some((id) => /_rssi|_ip/.test(id)));
+  assert.deepEqual(entityIds(fakeHa.states(), 'heatbooster_nope'), []);
+});

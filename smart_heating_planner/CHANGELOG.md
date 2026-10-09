@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.6-dev
+
+- Faster: Home Assistant now tells the app right away when the thermostat, a person or a HeatMeister changes (before, the app looked every 30 seconds). The page updates every 5 seconds (was 15). A fan change shows within a few seconds.
+- HeatMeisters: the fan icon turns one step faster for every 10 % fan speed, and keeps turning smoothly when the page updates (before, it jumped back to the start).
+
 ## 0.4.5-dev
 
 - HeatMeisters: the fan icon spins while the fan runs, faster at a higher fan speed (like the Mushroom card-mod animation). No animation when your device asks for less motion.

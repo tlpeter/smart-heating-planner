@@ -53,6 +53,8 @@ function freshWorld() {
 
 const world = freshWorld();
 const calls = [];
+// Live updates the app asked for (subscribe_entities): { ws, id, ids }.
+const subscriptions = [];
 
 function climate(id, name, w, available = true) {
   return [id, available ? 'heat' : 'unavailable', available ? {
@@ -169,6 +171,21 @@ function start(port = 0) {
         if (msg.type === 'get_config') return ok({ time_zone: TZ, version: HA_VERSION, unit_system: { temperature: '°C' } });
         if (msg.type === 'config/entity_registry/list') return ok(registries().entities);
         if (msg.type === 'config/device_registry/list') return ok(registries().devices);
+        // Live updates: like Home Assistant, first the current state of the
+        // entities, then a "c" (changed) event for every change (notify()).
+        if (msg.type === 'subscribe_entities') {
+          subscriptions.push({ ws, id: msg.id, ids: msg.entity_ids || [] });
+          ok(null);
+          const a = {};
+          for (const st of states()) if (!msg.entity_ids || msg.entity_ids.includes(st.entity_id)) a[st.entity_id] = { s: st.state, a: st.attributes };
+          return ws.send(JSON.stringify({ id: msg.id, type: 'event', event: { a } }));
+        }
+        if (msg.type === 'unsubscribe_events') {
+          const i = subscriptions.findIndex((x) => x.ws === ws && x.id === msg.subscription);
+          if (i < 0) return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'not_found', message: 'Subscription not found.' } }));
+          subscriptions.splice(i, 1);
+          return ok(null);
+        }
         // The thermostat's target. world.failWrites makes it fail.
         if (msg.type === 'call_service' && msg.domain === 'climate' && msg.service === 'set_temperature') {
           if (world.failWrites) return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'home_assistant_error', message: 'Thermostat did not answer' } }));
@@ -186,9 +203,28 @@ function start(port = 0) {
   });
 }
 
+// Tell the app that these entities changed (after changing `world`).
+// Returns how many subscriptions got the event.
+function notify(entityIds) {
+  const now = states();
+  let n = 0;
+  for (const sub of subscriptions) {
+    const c = {};
+    for (const id of entityIds) {
+      if (!sub.ids.includes(id)) continue;
+      const st = now.find((x) => x.entity_id === id);
+      if (st) c[id] = { '+': { s: st.state, a: st.attributes } };
+    }
+    if (!Object.keys(c).length || sub.ws.readyState !== 1) continue;
+    sub.ws.send(JSON.stringify({ id: sub.id, type: 'event', event: { c } }));
+    n++;
+  }
+  return n;
+}
+
 function reset() {
   Object.assign(world, freshWorld());
   calls.length = 0;
 }
 
-module.exports = { start, world, calls, reset, states, registries, north, HOME, TZ };
+module.exports = { start, world, calls, subscriptions, notify, reset, states, registries, north, HOME, TZ };

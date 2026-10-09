@@ -29,6 +29,7 @@ const state = {
 let socket = null;
 let nextId = 1;
 const pending = new Map();
+const subscriptions = new Map(); // id -> function that gets each event
 const connectListeners = [];
 
 const LEVELS = { debug: 10, info: 20, warning: 30, error: 40 };
@@ -55,13 +56,18 @@ const READ_ONLY_COMMANDS = new Set([
   'get_states',
   'get_config',
   'config/entity_registry/list',
+  // Live updates: Home Assistant tells the app when one of the chosen
+  // entities changes (only reads), and the app can stop that again.
+  'subscribe_entities',
+  'unsubscribe_events',
 ]);
 
 const CONTROL_TOKEN = Symbol('thermostat control');
 const MQTT_TOKEN = Symbol('heatmeister room temperature');
 
 // Send a command to Home Assistant and wait for its result.
-function call(message, timeoutMs = 20000, token = null) {
+// onEvent: for a subscription, called with every event Home Assistant sends for it.
+function call(message, timeoutMs = 20000, token = null, onEvent = null) {
   return new Promise((resolve, reject) => {
     const allowed = READ_ONLY_COMMANDS.has(message.type) ||
       // The only write: the thermostat's target, through setTemperature().
@@ -80,11 +86,13 @@ function call(message, timeoutMs = 20000, token = null) {
       return;
     }
     const id = nextId++;
-    pending.set(id, { resolve, reject });
+    pending.set(id, { resolve: (r) => resolve(onEvent ? id : r), reject });
+    if (onEvent) subscriptions.set(id, onEvent);
     socket.send(JSON.stringify({ id, ...message }));
     setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
+        subscriptions.delete(id);
         reject(new Error('Timeout waiting for Home Assistant'));
       }
     }, timeoutMs);
@@ -140,6 +148,16 @@ async function publishRoomTemperature(topic, temperature, allowedTopics) {
   }, 20000, MQTT_TOKEN);
 }
 
+// Get told when one of these entities changes. Resolves to the subscription id.
+function subscribeEntities(entityIds, onEvent) {
+  return call({ type: 'subscribe_entities', entity_ids: entityIds }, 20000, null, onEvent);
+}
+
+function unsubscribe(id) {
+  if (!subscriptions.delete(id) || !state.connected) return Promise.resolve();
+  return call({ type: 'unsubscribe_events', subscription: id }).catch(() => {});
+}
+
 function onConnect(fn) {
   connectListeners.push(fn);
 }
@@ -184,7 +202,12 @@ function connect() {
       const { resolve, reject } = pending.get(msg.id);
       pending.delete(msg.id);
       if (msg.success) resolve(msg.result);
-      else reject(new Error(msg.error ? msg.error.message : 'Unknown error'));
+      else {
+        subscriptions.delete(msg.id);
+        reject(new Error(msg.error ? msg.error.message : 'Unknown error'));
+      }
+    } else if (msg.type === 'event' && subscriptions.has(msg.id)) {
+      try { subscriptions.get(msg.id)(msg.event); } catch (err) { warn('Event handler failed:', err.message); }
     }
   });
 
@@ -198,8 +221,9 @@ function connect() {
     state.connected = false;
     for (const { reject } of pending.values()) reject(new Error('Connection closed'));
     pending.clear();
+    subscriptions.clear();
     setTimeout(connect, RECONNECT_MS);
   });
 }
 
-module.exports = { state, call, setTemperature, publishRoomTemperature, onConnect, connect, recentLog, log, debug, warn, READ_ONLY_COMMANDS };
+module.exports = { state, call, subscribeEntities, unsubscribe, setTemperature, publishRoomTemperature, onConnect, connect, recentLog, log, debug, warn, READ_ONLY_COMMANDS };

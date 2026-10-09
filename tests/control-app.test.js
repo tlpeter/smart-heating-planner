@@ -143,5 +143,5 @@ test('SAFETY: only climate.set_temperature, only on the chosen thermostat', () =
     assert.ok(c.service_data.temperature >= 5 && c.service_data.temperature <= 25);
   }
   const other = fakeHa.calls.filter((c) => c.type !== 'call_service').map((c) => c.type);
-  assert.ok(other.every((t) => ['get_states', 'get_config', 'config/entity_registry/list', 'config/device_registry/list'].includes(t)));
+  assert.ok(other.every((t) => ['get_states', 'get_config', 'config/entity_registry/list', 'config/device_registry/list', 'subscribe_entities', 'unsubscribe_events'].includes(t)));
 });

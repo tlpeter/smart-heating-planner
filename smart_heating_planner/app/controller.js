@@ -34,6 +34,23 @@ let lastControl = null; // { at, sent, why, error }
 let lastMqtt = null; // { at, sent, error }
 let timer = null;
 let busy = false;
+let again = false; // a change came in during a refresh: refresh once more
+
+// Live updates: Home Assistant tells the app when the thermostat, a chosen
+// HeatMeister or a person changes; the app then refreshes after a short wait
+// (changes that come together give one refresh). The timer stays as a backup.
+const LIVE_DELAY_MS = Math.max(50, Number(process.env.SHP_LIVE_MS) || 2000);
+let live = { id: null, key: '', failedKey: '' };
+let liveTimer = null;
+
+// Save the memory only when it changed (a refresh can come every few seconds).
+let savedMemory = '';
+function saveMemory() {
+  const json = JSON.stringify(memory);
+  if (json === savedMemory) return;
+  savedMemory = json;
+  writeJsonAtomic(MEMORY_FILE, memory);
+}
 
 function num(v) {
   const n = Number(v);
@@ -177,6 +194,7 @@ function evaluate(states, now = Date.now()) {
     return {
       ...own,
       running: m && !ownFan ? m.running : own.running,
+      fan_step: m && !ownFan ? m.fan_step : own.fan_step,
       follows: master ? master.name : null,
       name: h.name,
       topic: h.topic,
@@ -197,7 +215,7 @@ function evaluate(states, now = Date.now()) {
       sent: false,
     }, now);
   }
-  writeJsonAtomic(MEMORY_FILE, memory);
+  saveMemory();
 
   return {
     ready: true,
@@ -272,16 +290,61 @@ async function act(states, current, now) {
   return st;
 }
 
+// The entities that change what the page shows or what the app decides.
+function watchedIds(states, s) {
+  const ids = [];
+  if (s.thermostat) ids.push(s.thermostat);
+  if (s.room_temperature_source) ids.push(s.room_temperature_source);
+  ids.push('zone.home');
+  for (const p of s.persons) {
+    ids.push(p.entity_id);
+    const st = (states || []).find((x) => x.entity_id === p.entity_id);
+    const trackers = st && st.attributes && st.attributes.device_trackers;
+    if (Array.isArray(trackers)) ids.push(...trackers);
+  }
+  for (const h of s.heatmeisters) ids.push(...heatmeister.entityIds(states, h.prefix));
+  return [...new Set(ids.filter((x) => typeof x === 'string' && x))].sort();
+}
+
+function onLiveChange() {
+  if (liveTimer) return;
+  liveTimer = setTimeout(() => { liveTimer = null; refresh(); }, LIVE_DELAY_MS);
+}
+
+// Ask Home Assistant for live updates of the watched entities (again when
+// the list changed, for example after saving the settings).
+async function watch(states) {
+  const ids = watchedIds(states, settings.get());
+  const key = ids.join(',');
+  if (key === live.key && (live.id !== null || key === live.failedKey)) return;
+  if (live.id !== null) ha.unsubscribe(live.id);
+  live = { id: null, key, failedKey: '' };
+  let first = true;
+  try {
+    const id = await ha.subscribeEntities(ids, () => {
+      // The first event is the current state of everything: nothing changed.
+      if (first) { first = false; return; }
+      onLiveChange();
+    });
+    if (live.key === key) live.id = id; else ha.unsubscribe(id);
+    ha.debug('Live updates for', ids.length, 'entities');
+  } catch (err) {
+    live.failedKey = key;
+    ha.warn('Live updates are not available, the app refreshes every', options.refresh_seconds, 'seconds:', err.message);
+  }
+}
+
 async function refresh() {
   if (!ha.state.connected) {
     status = { ready: false, message: ha.state.lastError || 'Not connected to Home Assistant yet' };
     return status;
   }
   // One refresh at a time: a page request and the timer can come together.
-  if (busy) return status;
+  if (busy) { again = true; return status; }
   busy = true;
   try {
     const states = await ha.call({ type: 'get_states' });
+    watch(states);
     const now = Date.now();
     let st = evaluate(states, now);
     if (options.allow_control && settings.get().thermostat) st = await act(states, st, now);
@@ -292,15 +355,18 @@ async function refresh() {
     status = { ...status, error: err.message };
   } finally {
     busy = false;
+    if (again) { again = false; onLiveChange(); }
   }
   return status;
 }
 
 function start() {
+  // A new connection: the old live updates are gone.
+  live = { id: null, key: '', failedKey: '' };
   if (timer) clearInterval(timer);
   timer = setInterval(refresh, options.refresh_seconds * 1000);
   refresh();
   scheduleMqtt();
 }
 
-module.exports = { evaluate, refresh, start, scheduleMqtt, getStatus: () => status, thermostatFrom };
+module.exports = { evaluate, refresh, start, scheduleMqtt, getStatus: () => ({ ...status, live: live.id !== null }), thermostatFrom, watchedIds };

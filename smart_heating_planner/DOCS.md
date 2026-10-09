@@ -9,6 +9,8 @@ By default the app only **watches**: it shows what it would do and logs it on th
 
 ## Pages
 
+The page updates itself every 5 seconds. Home Assistant tells the app right away when the thermostat, a person (or their trackers) or a chosen HeatMeister changes, so a change shows within a few seconds.
+
 ### Home
 
 - **Advice now**: the temperature the thermostat should have, and why (Schedule, Away, Preheat, On the way, Manual hold).
@@ -16,7 +18,7 @@ By default the app only **watches**: it shows what it would do and logs it on th
 - **Who is home**: per person home, away (with the zone, and the distance when coming home is on), or location unknown. Persons who do not count are not shown.
 - **Schedule**: the switch point that is valid now, and the next one.
 - **Manual hold**: keep a temperature for 1, 2 or 4 hours, or until the next switch point. It wins over everything else and ends by itself. **End hold** stops it early. A change on the thermostat itself shows here too ("Changed on the thermostat: keeping 22 °C until 17:00").
-- **HeatMeisters**: per HeatMeister its control state (idle, heat, overrun, slave = follows another HeatMeister, …), running or off (from the fan status and fan speed; a running fan icon spins, faster at a higher fan speed), the radiator in/out temperature, the room temperature (and its own room target when it controls the room), and the fan speed. With sending on, also the room temperature last sent to it and when.
+- **HeatMeisters**: per HeatMeister its control state (idle, heat, overrun, slave = follows another HeatMeister, …), running or off (from the fan status and fan speed; a running fan icon spins, one step faster for every 10 % fan speed: from a quarter turn per second at 1–10 % to 2.5 turns per second at 91–100 %), the radiator in/out temperature, the room temperature (and its own room target when it controls the room), and the fan speed. With sending on, also the room temperature last sent to it and when.
 
 ### Schedule
 
@@ -114,11 +116,11 @@ Limits:
 | `allow_control` | off | Off: the app only watches. On: it sets the thermostat chosen in Settings. |
 | `allow_heatmeister_temperature` | off | **Send temperature to HeatMeisters.** On: the app sends the thermostat's setpoint (or a room temperature) to the chosen HeatMeisters over MQTT, through Home Assistant's MQTT integration. This replaces a Node-RED flow that does the same; both at the same time does no harm. |
 | `max_writes_per_day` | 48 | The most thermostat changes in 24 hours (1–500). |
-| `refresh_seconds` | 30 | How often the app reads Home Assistant (10–600). |
+| `refresh_seconds` | 30 | How often the app reads everything from Home Assistant as a backup (10–600). Changes of the thermostat, the persons and the chosen HeatMeisters come in right away anyway (live updates, only reading). |
 | `log_level` | info | How much the app writes to its log. |
 
 ## Safety
 
-- The app changes only two things, each behind its own option that is off by default: `climate.set_temperature` on the thermostat chosen in Settings (**Allow control**), and `mqtt.publish` of a temperature to the HeatMeister topics chosen in Settings (**Send temperature to HeatMeisters**). Everything else the app sends only reads. The tests check this on every push.
+- The app changes only two things, each behind its own option that is off by default: `climate.set_temperature` on the thermostat chosen in Settings (**Allow control**), and `mqtt.publish` of a temperature to the HeatMeister topics chosen in Settings (**Send temperature to HeatMeisters**). Everything else the app sends only reads (including asking for live updates of the chosen entities). The tests check this on every push.
 - It never changes automations, scripts, helpers or Node-RED flows, and never the thermostat's mode.
 - Only Home Assistant ingress can reach the app.

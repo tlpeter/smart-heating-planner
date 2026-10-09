@@ -9,7 +9,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const fakeHa = require('./fake-ha');
-const { startApp, APP } = require('./app-runner');
+const { startApp, sleep, APP } = require('./app-runner');
 
 const PORT = Number(process.env.SHP_TEST_PORT) || 18199;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -22,7 +22,7 @@ const save = (body) => req('POST', '/api/settings', body);
 // One switch point all week: the advice does not depend on the clock.
 const flat = (temp, preheat = false) => Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((d) => [d, [{ time: '00:00', temp, preheat }]]));
 
-test.before(async () => { app = await startApp({ port: PORT }); });
+test.before(async () => { app = await startApp({ port: PORT, env: { SHP_LIVE_MS: '50' } }); });
 test.after(() => { if (app) app.stop(); });
 
 test('fresh install: connected, nothing chosen, setup hint data', async () => {
@@ -284,6 +284,47 @@ test('large or broken requests are refused', async () => {
   const broken = await fetch(`${BASE}/api/settings`, { method: 'POST', body: '{nope' });
   assert.equal(broken.status, 400);
   assert.equal((await req('GET', '/api/nope')).status, 404);
+});
+
+test('live: a change of a HeatMeister fan shows without waiting for the timer', async () => {
+  await refreshed();
+  // The app asked for live updates of the thermostat, the persons and the HeatMeisters.
+  const sub = fakeHa.subscriptions[fakeHa.subscriptions.length - 1];
+  assert.ok(sub, 'no live updates asked');
+  assert.equal((await status()).live, true);
+  for (const id of ['climate.tado_smart_thermostat_ru3010610432', 'person.peter', 'device_tracker.peter_phone', 'sensor.heatbooster_woonkamer_garage_temp_inlet', 'number.heatbooster_woonkamer_voor_fan_speed_2']) {
+    assert.ok(sub.ids.includes(id), `${id} is not watched`);
+  }
+  assert.ok(!sub.ids.some((id) => /_rssi$|_ip$/.test(id)), 'WiFi values are watched for nothing');
+  const before = fakeHa.calls.filter((c) => c.type === 'get_states').length;
+  fakeHa.world.hm[0].fan = 55;
+  assert.equal(fakeHa.notify(['number.heatbooster_woonkamer_garage_fan_speed']), 1);
+  let g;
+  for (let i = 0; i < 40; i++) {
+    await sleep(50);
+    g = (await status()).heatmeisters.find((h) => h.name === 'Woonkamer-garage');
+    if (g.fan_speed === 55) break;
+  }
+  assert.equal(g.fan_speed, 55);
+  assert.equal(g.fan_step, 6);
+  assert.equal(g.running, true);
+  assert.ok(fakeHa.calls.filter((c) => c.type === 'get_states').length > before);
+  fakeHa.world.hm[0].fan = 0;
+  fakeHa.notify(['number.heatbooster_woonkamer_garage_fan_speed']);
+  await sleep(300);
+});
+
+test('live: saving other HeatMeisters asks for live updates of the new list', async () => {
+  const { data } = await req('GET', '/api/settings');
+  const before = fakeHa.subscriptions.length;
+  await save({ heatmeisters: data.heatmeisters.slice(0, 1) });
+  await refreshed();
+  const sub = fakeHa.subscriptions[fakeHa.subscriptions.length - 1];
+  assert.ok(fakeHa.subscriptions.length >= before);
+  assert.ok(!sub.ids.some((id) => id.includes('woonkamer_voor')), 'the old list is still watched');
+  assert.ok(fakeHa.calls.some((c) => c.type === 'unsubscribe_events'), 'the old live updates were not stopped');
+  await save({ heatmeisters: data.heatmeisters });
+  await refreshed();
 });
 
 test('the temperature for the HeatMeisters (setpoint) is shown, but not sent while its option is off', async () => {

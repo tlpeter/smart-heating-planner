@@ -35,7 +35,7 @@ The test version may contain unfinished or less-tested changes. Its version numb
 | Someone is coming home | Heats by the schedule again when that person is within a set distance and getting closer (GPS from the Companion App; per person on or off). |
 | You want it warmer for a while | **Manual hold** on the Home page: a temperature for 1, 2 or 4 hours, or until the next switch point. Ends by itself. |
 | Someone turns the tado up or down | With control on, the app keeps that temperature until the next switch point, instead of overwriting it. |
-| HeatMeisters | Found automatically. The Home page shows per HeatMeister whether it runs, the radiator and room temperature and the fan speed. Optionally the app sends them the thermostat's setpoint, or a room temperature (MQTT, `<Name>/temp-ambient-ext`). |
+| HeatMeisters | Found automatically. The Home page shows per HeatMeister whether it runs (the fan icon turns faster per 10 % fan speed), the radiator and room temperature and the fan speed; changes show within a few seconds. Optionally the app sends them the thermostat's setpoint, or a room temperature (MQTT, `<Name>/temp-ambient-ext`). |
 
 The schedule only counts when someone is home; this is an option (Settings › Presence). Per person you choose whether they count for "home" and whether "coming home" applies, and for everyone which kinds of tracker count (GPS/zones, router, Bluetooth). A person with an unknown location counts as home: better warm than cold.
 

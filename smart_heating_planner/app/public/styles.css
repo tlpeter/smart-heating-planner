@@ -190,7 +190,5 @@ table.hms input[type=text] { width: 100%; min-width: 220px; }
   .point label { font-size: 12.5px; }
 }
 
-/* A running fan spins (Mushroom card-mod style). Off for people who prefer less motion. */
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.shape.spin svg { animation: spin var(--spin, 1.5s) linear infinite; transform-origin: 50% 50%; }
-@media (prefers-reduced-motion: reduce) { .shape.spin svg { animation: none; } }
+/* A running fan spins (Mushroom card-mod style); app.js sets the speed per 10 % step. */
+.shape[data-fan] svg { transform-origin: 50% 50%; }

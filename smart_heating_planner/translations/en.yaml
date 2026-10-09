@@ -10,7 +10,7 @@ configuration:
     description: The app never sets the thermostat more often than this. Keep it low (about 20) for a tado cloud thermostat; tado allows 100 cloud requests per day without a subscription.
   refresh_seconds:
     name: Refresh (seconds)
-    description: How often the app reads Home Assistant and works out its advice.
+    description: How often the app reads everything from Home Assistant as a backup. Changes of the thermostat, the persons and the HeatMeisters come in right away anyway.
   log_level:
     name: Log level
     description: How much the app writes to its log. Use "debug" only to find a problem.

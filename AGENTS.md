@@ -18,9 +18,9 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 - `presence.js`: who is home per person (only the kinds of tracker that count: GPS, router, Bluetooth), the away delay, and "coming home" (distance from the GPS tracker to `zone.home`, getting closer).
 - `heatmeister.js`: finds HeatMeisters by entity names (`<domain>.heatbooster_<room>_<part>`) and reads them; `shouldPublish()` decides when the temperature is sent again (new thermostat setpoint, change ≥ 0.1 °C, or the interval in seconds, default 15). `controller.js` has its own timer for this, apart from the refresh.
 - `decide.js`: the decision. Order: manual hold → someone home → preheat → on the way home → away temperature (never above the schedule). The HeatMeisters run by themselves; the app only shows them.
-- `controller.js`: every refresh reads the states, decides and logs a line in the activity log when the advice changes.
+- `controller.js`: every refresh reads the states, decides and logs a line in the activity log when the advice changes. It asks Home Assistant for live updates (`subscribe_entities`) of the thermostat, the persons with their trackers and the chosen HeatMeisters, and refreshes 2 seconds after a change; the `refresh_seconds` timer is the backup.
 - `control.js`: when to send (only on a real change, 2 minutes apart, daily limit) and how a change by hand is noticed (the thermostat shows something else than the app set, after 3 minutes).
-- `ha.js`: the WebSocket client. It reads (`READ_ONLY_COMMANDS`); it writes only through two functions, each behind its own option: `setTemperature()` (`climate.set_temperature` on the chosen thermostat, `allow_control`) and `publishRoomTemperature()` (`mqtt.publish` to the chosen HeatMeister topics, `allow_heatmeister_temperature`).
+- `ha.js`: the WebSocket client. It reads (`READ_ONLY_COMMANDS`, including `subscribe_entities` / `unsubscribe_events` for live updates); it writes only through two functions, each behind its own option: `setTemperature()` (`climate.set_temperature` on the chosen thermostat, `allow_control`) and `publishRoomTemperature()` (`mqtt.publish` to the chosen HeatMeister topics, `allow_heatmeister_temperature`).
 
 ### The owner's house
 

@@ -9,12 +9,45 @@ const ICONS = {"home": "M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z", "schedule"
 function icon(name) {
   return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] || ''}"/></svg>`;
 }
-// A running fan spins, like the Mushroom card-mod trick: faster at a higher
-// fan speed (100 % about 0.6 s per turn, low speed about 3 s).
-function spinSeconds(speed) {
-  const s = Number(speed);
-  if (!Number.isFinite(s) || s <= 0) return 1.5;
-  return Math.round((3 - Math.min(100, s) / 100 * 2.4) * 10) / 10;
+// A running fan spins, like the Mushroom card-mod trick. Every step of 10 %
+// fan speed turns it faster: 1-10 % a quarter turn per second, 91-100 %
+// two and a half turns per second. Running without a known speed: half a turn.
+function turnsPerSecond(step) {
+  const n = Number(step);
+  return Number.isFinite(n) && n > 0 ? Math.min(10, n) * 0.25 : 0.5;
+}
+// The fan icons stay the same elements between refreshes, so a fan keeps
+// turning smoothly and only changes its speed (no jump back to the start).
+const fans = new Map(); // HeatMeister prefix -> { el, anim }
+function placeFans(hms) {
+  const still = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const seen = new Set();
+  document.querySelectorAll('#hm-list [data-fan]').forEach((slot) => {
+    const key = slot.dataset.fan;
+    const h = hms.find((x) => x.prefix === key);
+    if (!h) return;
+    seen.add(key);
+    let f = fans.get(key);
+    if (!f) {
+      f = { el: slot, anim: null };
+      f.el.innerHTML = icon('fanOff');
+      fans.set(key, f);
+    } else {
+      slot.replaceWith(f.el);
+    }
+    f.el.className = `shape ${h.running ? 'c-purple' : 'c-grey'}`;
+    f.el.dataset.step = h.running ? String(h.fan_step || 0) : '';
+    f.el.querySelector('path').setAttribute('d', ICONS[h.running ? 'fan' : 'fanOff']);
+    const svg = f.el.querySelector('svg');
+    if (h.running && !still && svg.animate) {
+      if (!f.anim) f.anim = svg.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 1000, iterations: Infinity });
+      f.anim.updatePlaybackRate(turnsPerSecond(h.fan_step));
+    } else if (f.anim) {
+      f.anim.cancel();
+      f.anim = null;
+    }
+  });
+  for (const key of [...fans.keys()]) if (!seen.has(key)) fans.delete(key);
 }
 function fillIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
@@ -168,7 +201,7 @@ function renderStatus(s) {
   $('hm-list').innerHTML = hms.length
     ? `<p class="muted small">Thermostat asks for heat: <b>${s.demand ? 'yes' : 'no'}</b></p>` + rtLine + hms.map((h) => `
       <div class="hm">
-        <span class="shape ${h.running ? 'c-purple spin' : 'c-grey'}" style="${h.running ? `--spin:${spinSeconds(h.fan_speed)}s` : ''}">${icon(h.running ? 'fan' : 'fanOff')}</span>
+        <span class="shape" data-fan="${esc(h.prefix)}"></span>
         <div class="txt"><div class="primary">${esc(h.name)} <span class="muted small">· ${esc(h.follows ? `slave of ${h.follows}` : !h.available ? 'unavailable' : h.control_state === 'slave' ? 'slave' : (h.control_state || 'no control state'))}</span></div>
           ${h.follows && h.inlet == null && h.room == null && h.fan_speed == null ? `<div class="secondary">No own values: this HeatMeister follows ${esc(h.follows)}${h.running ? ', which is running' : ''}.</div>` : ''}
           <div class="hmgrid${h.follows && h.inlet == null && h.room == null && h.fan_speed == null ? ' hidden' : ''}">
@@ -182,6 +215,7 @@ function renderStatus(s) {
         <span class="pill ${h.running ? 'change' : 'off'}">${h.running ? 'running' : 'off'}</span>
       </div>`).join('')
     : '<p class="muted small">No HeatMeisters shown. Choose them in <a href="#" data-goto="settings">Settings</a>.</p>';
+  placeFans(hms);
 }
 
 async function refreshStatus() {
@@ -405,5 +439,6 @@ fillIcons();
 (async () => {
   try { settings = await api('api/settings'); } catch (err) { showError(err.message); }
   await refreshStatus();
-  setInterval(refreshStatus, 15000);
+  // The app gets changes from Home Assistant right away; the page asks every 5 s.
+  setInterval(() => { if (!document.hidden) refreshStatus(); }, 5000);
 })();

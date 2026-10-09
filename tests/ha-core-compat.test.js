@@ -103,4 +103,7 @@ test('the app works against a real Home Assistant Core', async () => {
   assert.equal(typeof status.thermostat.target, 'number');
   assert.equal(status.presence.unknown.length, 2, 'persons without a tracker should be "unknown"');
   assert.equal(typeof status.advice.target, 'number');
+  // Live updates (subscribe_entities) work with this Home Assistant.
+  for (let i = 0; i < 25 && !status.live; i++) { await sleep(200); status = await appApi('/api/status'); }
+  assert.equal(status.live, true, 'no live updates from Home Assistant');
 });
