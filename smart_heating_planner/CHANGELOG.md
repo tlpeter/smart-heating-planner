@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.4-dev
+
+- HeatMeisters: entity ids that end in `_2`, `_3`, … (Home Assistant adds that when an id existed before) are now found. Woonkamer-voor showed no values because of this.
+
 ## 0.4.3-dev
 
 - HeatMeisters: the temperature is now sent **every 15 seconds** with its own timer, like the Node-RED flow (the HeatMeister expects it that often). The setting **Send it every** is now in seconds (5–600). Still also right away on a new setpoint.

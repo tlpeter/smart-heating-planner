@@ -27,7 +27,9 @@ const PARTS = {
   ambientcontrol_temp: 'room_target',
   demand_trim: 'demand_trim',
 };
-const PART_RE = new RegExp(`^(sensor|number|switch|binary_sensor)\\.((?:heatbooster|heatmeister|heat_meister)_[a-z0-9_]+?)_(${Object.keys(PARTS).join('|')})$`);
+// Home Assistant adds "_2", "_3", … to an entity id that existed before
+// (for example sensor.heatbooster_woonkamer_voor_temp_inlet_2), so allow that.
+const PART_RE = new RegExp(`^(sensor|number|switch|binary_sensor)\\.((?:heatbooster|heatmeister|heat_meister)_[a-z0-9_]+?)_(${Object.keys(PARTS).join('|')})(?:_\\d+)?$`);
 
 // Control states in which the fan runs. Only used when the device has no
 // fan status or fan speed: those say it better. "slave" is not in the list:
@@ -53,8 +55,11 @@ function discover(states) {
     const m = PART_RE.exec(st.entity_id);
     if (!m) continue;
     const prefix = m[2];
-    const dev = found.get(prefix) || { prefix, name: null, entities: {} };
-    dev.entities[PARTS[m[3]]] = st.entity_id;
+    const dev = found.get(prefix) || { prefix, name: null, entities: {}, all: {} };
+    const part = PARTS[m[3]];
+    // Keep every entity per part (old one and "_2"); the first that works is used.
+    (dev.all[part] = dev.all[part] || []).push(st.entity_id);
+    dev.entities[part] = dev.entities[part] || st.entity_id;
     const fn = st.attributes && st.attributes.friendly_name;
     if (!dev.name && ['inlet', 'control_state', 'room', 'fan_speed', 'fan_on'].includes(PARTS[m[3]])) dev.name = nameFrom(fn, prefix);
     found.set(prefix, dev);
@@ -79,10 +84,13 @@ function read(states, prefix) {
   const byId = new Map((states || []).map((s) => [s.entity_id, s]));
   const dev = discover(states).find((d) => d.prefix === prefix);
   if (!dev) return { prefix, available: false };
+  // The first entity for this part that has a value (the old one or "_2").
   const val = (part) => {
-    const id = dev.entities[part];
-    const st = id ? byId.get(id) : null;
-    return st && st.state !== 'unavailable' && st.state !== 'unknown' ? st.state : null;
+    for (const id of (dev.all && dev.all[part]) || [dev.entities[part]]) {
+      const st = id ? byId.get(id) : null;
+      if (st && st.state !== 'unavailable' && st.state !== 'unknown') return st.state;
+    }
+    return null;
   };
   const control = val('control_state');
   const out = {

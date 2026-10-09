@@ -9,8 +9,10 @@
 // - three HeatMeisters through MQTT with the real entity names
 //   (heatbooster_<room>_...): Woonkamer-garage is the master (controls the
 //   room temperature itself); Woonkamer-voor and Woonkamer-gang are its MQTT
-//   slaves. Like in the real house, Woonkamer-voor shows "slave" and no own
-//   values, and Woonkamer-gang has no control state. Their outside
+//   slaves. Like in the real house, most entity ids of Woonkamer-voor end in
+//   "_2" (Home Assistant does that when an id existed before), it shows
+//   "slave" but has its own values, and Woonkamer-gang has no control state.
+//   Their outside
 //   room temperature comes over MQTT (topic "<Name>/temp-ambient-ext");
 //   mqtt.publish is recorded in world.mqtt.
 // Change `world` to change the house. Every command the app sends is
@@ -43,7 +45,7 @@ function freshWorld() {
     bluetooth: {},
     hm: [
       { id: 'woonkamer_garage', name: 'Woonkamer-garage', state: 'idle', inlet: 21.63, outlet: 21.04, room: 20.33, fan: 0, roomControl: true, roomTarget: 19 },
-      { id: 'woonkamer_voor', name: 'Woonkamer-voor', state: 'slave', noData: true, inlet: 21.2, outlet: 20.9, room: 20.1, fan: 0, roomControl: false, roomTarget: 20 },
+      { id: 'woonkamer_voor', name: 'Woonkamer-voor', state: 'slave', suffix2: true, inlet: 20.98, outlet: 21.16, room: 21.12, fan: 0, roomControl: false, roomTarget: 20 },
       { id: 'woonkamer_gang', name: 'Woonkamer-gang', state: 'unavailable', inlet: 21.4, outlet: 21.2, room: 23.2, fan: 0, roomControl: false, roomTarget: 20 },
     ],
   };
@@ -126,7 +128,12 @@ function states() {
     ['zone.home', '1', { friendly_name: 'Home', latitude: HOME.lat, longitude: HOME.lon, radius: 100 }],
     ['zone.werk', '0', { friendly_name: 'Werk', latitude: 51.81, longitude: 4.67, radius: 200 }],
   ];
-  for (const h of w.hm) list.push(...heatmeisterStates(h));
+  for (const h of w.hm) {
+    // suffix2: like the real Woonkamer-voor, every id ends in "_2" except the
+    // control state and the inlet rate.
+    const keep = /_(fan_control_state|temp_inlet_rate)$/;
+    list.push(...heatmeisterStates(h).map(([id, st, at]) => [h.suffix2 && !keep.test(id) ? `${id}_2` : id, st, at]));
+  }
   const now = new Date().toISOString();
   return list.map(([entity_id, state, attributes]) => ({ entity_id, state: String(state), attributes, last_changed: now, last_updated: now, context: { id: 'x' } }));
 }

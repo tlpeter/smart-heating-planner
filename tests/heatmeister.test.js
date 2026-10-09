@@ -46,12 +46,30 @@ test('running: the fan status and fan speed decide, not the control state', () =
   assert.equal(hm.read(fakeHa.states(), 'heatbooster_woonkamer_garage').running, false, 'fan at 0 % is off');
 });
 
-test('a "slave" HeatMeister is not running by itself; with own fan data, that decides', () => {
+test('entity ids ending in "_2" are found (like the real Woonkamer-voor)', () => {
+  const voor = hm.read(fakeHa.states(), 'heatbooster_woonkamer_voor');
+  assert.equal(voor.control_state, 'slave');
+  assert.equal(voor.inlet, 20.98);
+  assert.equal(voor.outlet, 21.16);
+  assert.equal(voor.room, 21.12);
+  assert.equal(voor.fan_speed, 0);
+  const d = hm.discover(fakeHa.states()).find((x) => x.prefix === 'heatbooster_woonkamer_voor');
+  assert.equal(d.entities.inlet, 'sensor.heatbooster_woonkamer_voor_temp_inlet_2');
+  assert.equal(d.entities.inlet_rate, 'sensor.heatbooster_woonkamer_voor_temp_inlet_rate');
+});
+
+test('old id unavailable and a "_2" id with a value: the value is used', () => {
+  const states = [
+    { entity_id: 'sensor.heatbooster_x_fan_control_state', state: 'idle', attributes: {} },
+    { entity_id: 'sensor.heatbooster_x_temp_inlet', state: 'unavailable', attributes: {} },
+    { entity_id: 'sensor.heatbooster_x_temp_inlet_2', state: '30.5', attributes: {} },
+  ];
+  assert.equal(hm.read(states, 'heatbooster_x').inlet, 30.5);
+});
+
+test('a "slave" HeatMeister is not running by itself; its own fan data decides', () => {
   const voor = () => hm.read(fakeHa.states(), 'heatbooster_woonkamer_voor');
-  assert.equal(voor().control_state, 'slave');
-  assert.equal(voor().inlet, null, 'no own values, like the real Woonkamer-voor');
   assert.equal(voor().running, false);
-  fakeHa.world.hm[1].noData = false;
   fakeHa.world.hm[1].fan = 30;
   assert.equal(voor().running, true);
 });

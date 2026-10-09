@@ -15,11 +15,11 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
-| HeatMeisters | 12 of 12 ✓ |
+| HeatMeisters | 14 of 14 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.4.3.
+Version: 0.4.4.
 
 ## Settings and situations
 
@@ -163,7 +163,9 @@ Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_
 - ✓ all known parts are recognised, and similar names are not mixed up
 - ✓ reading one: temperatures, fan, room control
 - ✓ running: the fan status and fan speed decide, not the control state
-- ✓ a "slave" HeatMeister is not running by itself; with own fan data, that decides
+- ✓ entity ids ending in "_2" are found (like the real Woonkamer-voor)
+- ✓ old id unavailable and a "_2" id with a value: the value is used
+- ✓ a "slave" HeatMeister is not running by itself; its own fan data decides
 - ✓ a HeatMeister without a control state still shows its values (like Woonkamer-gang)
 - ✓ without fan status or fan speed, the control state is used (slave does not count)
 - ✓ unknown prefix or unavailable device

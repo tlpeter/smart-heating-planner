@@ -227,14 +227,15 @@ test('HeatMeisters: their own state is shown, nothing is sent to them', async ()
   assert.equal(wg.room_control, true);
   const voor = s.heatmeisters.find((h) => h.prefix === 'heatbooster_woonkamer_voor');
   assert.equal(voor.follows, 'Woonkamer-garage');
-  assert.equal(voor.running, true, 'a slave without own fan data runs with its master');
+  assert.equal(voor.running, false, 'own fan data at 0 % wins over the master');
+  assert.equal(voor.inlet, 20.98, 'values from the "_2" entities');
   const gang = s.heatmeisters.find((h) => h.prefix === 'heatbooster_woonkamer_gang');
   assert.equal(gang.follows, 'Woonkamer-garage');
   assert.equal(gang.running, false, 'own fan data at 0 % wins over the master');
   fakeHa.world.hm[0].state = 'idle';
   fakeHa.world.hm[0].fan = 0;
   const after = await refreshed();
-  assert.equal(after.heatmeisters.find((h) => h.prefix === 'heatbooster_woonkamer_voor').running, false);
+  assert.equal(after.heatmeisters.find((h) => h.prefix === 'heatbooster_woonkamer_garage').running, false);
   fakeHa.world.hvacAction = 'idle';
 });
 
