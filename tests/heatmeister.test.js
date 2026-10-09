@@ -73,3 +73,10 @@ test('send the room temperature on a change of 0.1 °C, or every few minutes', (
   assert.equal(hm.shouldPublish({ value: 21.4, last: { value: 21.4, at: now - 5 * 60000 }, now, intervalMinutes: 5 }), true);
   assert.equal(hm.shouldPublish({ value: null, last: undefined, now, intervalMinutes: 5 }), false);
 });
+
+test('a new thermostat setpoint sends right away, also when the room temperature is the same', () => {
+  const now = 1_800_000_000_000;
+  const last = { value: 21.4, at: now - 60000 };
+  assert.equal(hm.shouldPublish({ value: 21.4, last, now, intervalMinutes: 5 }), false);
+  assert.equal(hm.shouldPublish({ value: 21.4, last, now, intervalMinutes: 5, targetChanged: true }), true);
+});

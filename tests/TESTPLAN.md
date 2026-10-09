@@ -10,12 +10,12 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 |---|---|
 | Settings and situations | 22 of 22 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
-| HeatMeister room temperature (MQTT on) | 7 of 7 ✓ |
+| HeatMeister room temperature (MQTT on) | 8 of 8 ✓ |
 | Week schedule | 10 of 10 ✓ |
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
-| HeatMeisters | 8 of 8 ✓ |
+| HeatMeisters | 9 of 9 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
@@ -76,6 +76,7 @@ The real app with "Send room temperature to HeatMeisters" on: like the Node-RED 
 - ✓ nothing is sent before HeatMeisters are chosen
 - ✓ the thermostat room temperature goes to every chosen HeatMeister
 - ✓ no new message while the temperature stays the same
+- ✓ a new setpoint on the thermostat sends right away (like the Node-RED flow)
 - ✓ a change of 0.1 °C or more is sent right away
 - ✓ another room temperature sensor can be the source
 - ✓ MQTT down: shown as an error, tried again later
@@ -164,6 +165,7 @@ Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_
 - ✓ newer "heatmeister_" names work too
 - ✓ the default MQTT topic is "<Name>/temp-ambient-ext", like the Node-RED flow
 - ✓ send the room temperature on a change of 0.1 °C, or every few minutes
+- ✓ a new thermostat setpoint sends right away, also when the room temperature is the same
 
 ## Finding entities
 

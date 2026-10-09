@@ -57,9 +57,14 @@ async function sendRoomTemperature(st, now) {
   memory.mqtt = memory.mqtt || {};
   const value = st.roomTemperature.value;
   const topics = s.heatmeisters.map((h) => h.topic).filter(Boolean);
+  // A new setpoint on the thermostat (by the app, the schedule in Node-RED or
+  // by hand): send right away, like the Node-RED flow does.
+  const target = st.thermostat && st.thermostat.available ? st.thermostat.target : null;
+  const targetChanged = target !== null && memory.mqttTarget !== undefined && memory.mqttTarget !== null && target !== memory.mqttTarget;
+  if (target !== null) memory.mqttTarget = target;
   let sent = 0;
   for (const topic of topics) {
-    if (!heatmeister.shouldPublish({ value, last: memory.mqtt[topic], now, intervalMinutes: s.room_temperature_interval })) continue;
+    if (!heatmeister.shouldPublish({ value, last: memory.mqtt[topic], now, intervalMinutes: s.room_temperature_interval, targetChanged })) continue;
     try {
       await ha.publishRoomTemperature(topic, value, topics);
       memory.mqtt[topic] = { value, at: now };

@@ -2,7 +2,7 @@
 
 ## 0.4.0-dev
 
-- **Room temperature for the HeatMeisters**, like the Node-RED flow: new option **Send room temperature to HeatMeisters** (Configuration tab, off by default). The app sends the thermostat's room temperature (or another sensor) to `<Name>/temp-ambient-ext` over MQTT, when it changes by 0.1 °C and at least every 5 minutes. Per HeatMeister you can change the topic (they are case-sensitive).
+- **Room temperature for the HeatMeisters**, like the Node-RED flow: new option **Send room temperature to HeatMeisters** (Configuration tab, off by default). The app sends the thermostat's room temperature (or another sensor) to `<Name>/temp-ambient-ext` over MQTT, right away when the thermostat's setpoint changes (like the Node-RED flow), when the room temperature changes by 0.1 °C, and at least every 5 minutes. Per HeatMeister you can change the topic (they are case-sensitive).
 - New setting **The schedule only counts when someone is home** (on by default). Off: the schedule is always followed.
 - New look in the style of Home Assistant and Mushroom cards, the same as Smart Charging Planner: chip tabs with icons, round tinted icons, softer cards, tiles for the thermostat values. Light and dark mode follow your device.
 - Home shows per person an icon (home, away, coming home) and per HeatMeister a fan icon that shows whether it runs, and what room temperature it got.

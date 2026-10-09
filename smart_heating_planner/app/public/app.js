@@ -346,7 +346,7 @@ async function loadSettingsPage() {
     `<option value="${esc(t.entity_id)}" ${t.entity_id === s.room_temperature_source ? 'selected' : ''}>${esc(t.name)} (${esc(t.state)} °C)</option>`).join('');
   $('s-room-interval').value = s.room_temperature_interval;
   $('s-room-note').innerHTML = (status && status.roomTemperature && status.roomTemperature.allowed)
-    ? 'The app sends this temperature to each ticked HeatMeister over MQTT (Home Assistant\'s MQTT integration), when it changes by 0.1 °C and at least every few minutes.'
+    ? 'The app sends this temperature to each ticked HeatMeister over MQTT (Home Assistant\'s MQTT integration): right away when the thermostat setpoint changes, when the temperature changes by 0.1 °C, and at least every few minutes.'
     : 'Sending is <b>off</b>. Turn on "Send room temperature to HeatMeisters" in the app\'s Configuration tab. It does the same as the Node-RED flow; both sending at the same time does no harm.';
   $('s-needs-presence').checked = s.schedule_needs_presence !== false;
   $('s-hold').value = s.hold_default_minutes;

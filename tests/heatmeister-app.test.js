@@ -51,10 +51,20 @@ test('no new message while the temperature stays the same', async () => {
   for (const t of TOPICS) assert.equal(fakeHa.world.mqtt[t].length, 1);
 });
 
+test('a new setpoint on the thermostat sends right away (like the Node-RED flow)', async () => {
+  const before = fakeHa.world.mqtt[TOPICS[0]].length;
+  fakeHa.world.target = 21; // the setpoint changed, the room temperature did not
+  await refreshed();
+  for (const t of TOPICS) assert.equal(fakeHa.world.mqtt[t].length, before + 1, t);
+  assert.equal(fakeHa.world.mqtt[TOPICS[0]].at(-1), '19.4');
+  await refreshed();
+  assert.equal(fakeHa.world.mqtt[TOPICS[0]].length, before + 1, 'no repeat while the setpoint stays');
+});
+
 test('a change of 0.1 °C or more is sent right away', async () => {
   fakeHa.world.room = 19.6;
   await refreshed();
-  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19.4', '19.6']);
+  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19.4', '19.4', '19.6']);
 });
 
 test('another room temperature sensor can be the source', async () => {

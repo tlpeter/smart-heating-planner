@@ -101,10 +101,12 @@ function defaultTopic(name) {
 
 // Should the room temperature be sent (again) to one topic?
 // last: { value, at } of the last send, or undefined.
-// Sends when the value changed by 0.1 °C or more, or every intervalMinutes.
-function shouldPublish({ value, last, now, intervalMinutes }) {
+// targetChanged: the thermostat's setpoint changed since the last refresh
+// (that is what the owner's Node-RED flow reacts to).
+// Sends then, when the value changed by 0.1 °C or more, or every intervalMinutes.
+function shouldPublish({ value, last, now, intervalMinutes, targetChanged = false }) {
   if (!Number.isFinite(value)) return false;
-  if (!last) return true;
+  if (!last || targetChanged) return true;
   if (Math.abs(value - last.value) >= 0.1 - 1e-9) return true;
   return now - last.at >= intervalMinutes * 60000;
 }
