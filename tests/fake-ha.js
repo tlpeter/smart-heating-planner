@@ -7,8 +7,10 @@
 // - three persons (Peter, Yvonne, Cheyenne), each with a Companion App GPS
 //   tracker and a router tracker; Peter also has a Bluetooth tracker;
 // - three HeatMeisters through MQTT with the real entity names
-//   (heatbooster_<room>_...): Woonkamer-garage (controls the room
-//   temperature itself), Woonkamer-voor and Woonkamer-gang. Their outside
+//   (heatbooster_<room>_...): Woonkamer-garage is the master (controls the
+//   room temperature itself); Woonkamer-voor and Woonkamer-gang are its MQTT
+//   slaves. Like in the real house, Woonkamer-voor shows "slave" and no own
+//   values, and Woonkamer-gang has no control state. Their outside
 //   room temperature comes over MQTT (topic "<Name>/temp-ambient-ext");
 //   mqtt.publish is recorded in world.mqtt.
 // Change `world` to change the house. Every command the app sends is
@@ -41,8 +43,8 @@ function freshWorld() {
     bluetooth: {},
     hm: [
       { id: 'woonkamer_garage', name: 'Woonkamer-garage', state: 'idle', inlet: 21.63, outlet: 21.04, room: 20.33, fan: 0, roomControl: true, roomTarget: 19 },
-      { id: 'woonkamer_voor', name: 'Woonkamer-voor', state: 'idle', inlet: 21.2, outlet: 20.9, room: 20.1, fan: 0, roomControl: false, roomTarget: 20 },
-      { id: 'woonkamer_gang', name: 'Woonkamer-gang', state: 'idle', inlet: 21.0, outlet: 20.7, room: 20.2, fan: 0, roomControl: false, roomTarget: 20 },
+      { id: 'woonkamer_voor', name: 'Woonkamer-voor', state: 'slave', noData: true, inlet: 21.2, outlet: 20.9, room: 20.1, fan: 0, roomControl: false, roomTarget: 20 },
+      { id: 'woonkamer_gang', name: 'Woonkamer-gang', state: 'unavailable', inlet: 21.4, outlet: 21.2, room: 23.2, fan: 0, roomControl: false, roomTarget: 20 },
     ],
   };
 }
@@ -86,22 +88,24 @@ function personStates(id, name, w) {
 
 function heatmeisterStates(h) {
   const p = `heatbooster_${h.id}`;
+  // noData: the values of a slave are not available (only its control state).
+  const d = (x) => (h.noData ? 'unavailable' : x);
   const n = `HeatMeister - ${h.name}`;
   const T = { unit_of_measurement: '°C', device_class: 'temperature', state_class: 'measurement' };
   return [
-    [`binary_sensor.${p}_fan_enabled`, h.fan > 0 ? 'on' : 'off', { friendly_name: `${n} Fan status`, device_class: 'running' }],
+    [`binary_sensor.${p}_fan_enabled`, d(h.fan > 0 ? 'on' : 'off'), { friendly_name: `${n} Fan status`, device_class: 'running' }],
     [`number.${p}_ambientcontrol_temp`, h.roomTarget, { friendly_name: `${n} Room temperature target`, min: 14, max: 26, step: 0.5, ...T }],
     [`number.${p}_ambientcontrol_temp_trim`, 0, { friendly_name: `${n} Room temperature trim`, min: -10, max: 10, step: 0.1, ...T }],
-    [`number.${p}_fan_speed`, h.fan, { friendly_name: `${n} Fan speed`, min: 0, max: 100, step: 1, unit_of_measurement: '%' }],
+    [`number.${p}_fan_speed`, d(h.fan), { friendly_name: `${n} Fan speed`, min: 0, max: 100, step: 1, unit_of_measurement: '%' }],
     [`sensor.${p}_demand_trim`, '0.00', { friendly_name: `${n} Demand trim`, ...T }],
     [`sensor.${p}_fan_control_state`, h.state, { friendly_name: `${n} Control state`, device_class: 'enum', options: ['idle', 'overrun', 'manual', 'heat', 'defrost', 'startup', 'cool', 'slave', 'sensor_error'] }],
     [`sensor.${p}_ip`, '192.168.1.167', { friendly_name: `${n} IP address` }],
     [`sensor.${p}_rssi`, -74, { friendly_name: `${n} WiFi signal strength`, unit_of_measurement: 'dB', device_class: 'signal_strength' }],
-    [`sensor.${p}_temp_ambient`, h.room, { friendly_name: `${n} Room temperature`, ...T }],
+    [`sensor.${p}_temp_ambient`, d(h.room), { friendly_name: `${n} Room temperature`, ...T }],
     [`sensor.${p}_temp_delta_io`, Math.round((h.inlet - h.outlet) * 100) / 100, { friendly_name: `${n} Water temperature difference`, ...T }],
-    [`sensor.${p}_temp_inlet`, h.inlet, { friendly_name: `${n} Water inlet temperature`, ...T }],
+    [`sensor.${p}_temp_inlet`, d(h.inlet), { friendly_name: `${n} Water inlet temperature`, ...T }],
     [`sensor.${p}_temp_inlet_rate`, -0.02, { friendly_name: `${n} Inlet temperature rate of change`, unit_of_measurement: '°C/min' }],
-    [`sensor.${p}_temp_outlet`, h.outlet, { friendly_name: `${n} Water outlet temperature`, ...T }],
+    [`sensor.${p}_temp_outlet`, d(h.outlet), { friendly_name: `${n} Water outlet temperature`, ...T }],
     [`switch.${p}_ambientcontrol_enable`, h.roomControl ? 'on' : 'off', { friendly_name: `${n} Room temperature control` }],
     [`switch.${p}_fan_boostmode`, 'off', { friendly_name: `${n} Boost mode` }],
     [`switch.${p}_fan_controlmode`, 'off', { friendly_name: `${n} Manual control` }],

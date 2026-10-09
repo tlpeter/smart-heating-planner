@@ -125,12 +125,22 @@ function evaluate(states, now = Date.now()) {
 
   const demand = heatDemand(thermostat);
   const roomTemp = roomTemperature(states, s, thermostat);
-  const heatmeisters = s.heatmeisters.map((h) => ({
-    ...heatmeister.read(states, h.prefix),
-    name: h.name,
-    topic: h.topic,
-    sent: (memory.mqtt || {})[h.topic] || null,
-  }));
+  const read = new Map(s.heatmeisters.map((h) => [h.prefix, heatmeister.read(states, h.prefix)]));
+  const heatmeisters = s.heatmeisters.map((h) => {
+    const own = read.get(h.prefix);
+    const master = h.follows ? s.heatmeisters.find((m) => m.prefix === h.follows) : null;
+    const m = master ? read.get(master.prefix) : null;
+    // A slave without its own fan data runs when its master runs.
+    const ownFan = own.fan_speed !== null || own.fan_on_known;
+    return {
+      ...own,
+      running: m && !ownFan ? m.running : own.running,
+      follows: master ? master.name : null,
+      name: h.name,
+      topic: h.topic,
+      sent: (memory.mqtt || {})[h.topic] || null,
+    };
+  });
 
   // One activity line when the advice changes.
   const key = JSON.stringify([advice.target, advice.source]);

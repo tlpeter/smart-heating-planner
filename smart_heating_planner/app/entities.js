@@ -62,7 +62,13 @@ function detect(states, entities = []) {
   return {
     thermostats,
     persons: persons.sort(byEntity),
-    heatmeisters: heatmeister.discover(states).map((d) => ({ prefix: d.prefix, name: d.name, topic: heatmeister.defaultTopic(d.name), entities: Object.keys(d.entities).length })),
+    heatmeisters: heatmeister.discover(states).map((d) => ({
+      prefix: d.prefix,
+      name: d.name,
+      topic: heatmeister.defaultTopic(d.name),
+      entities: Object.keys(d.entities).length,
+      control_state: heatmeister.read(states, d.prefix).control_state,
+    })),
     temperatures: temperatures.sort(byEntity),
     homeZone: byId.has('zone.home'),
   };

@@ -162,8 +162,9 @@ function renderStatus(s) {
     ? `<p class="muted small">Thermostat asks for heat: <b>${s.demand ? 'yes' : 'no'}</b></p>` + rtLine + hms.map((h) => `
       <div class="hm">
         <span class="shape ${h.running ? 'c-purple' : 'c-grey'}">${icon(h.running ? 'fan' : 'fanOff')}</span>
-        <div class="txt"><div class="primary">${esc(h.name)} <span class="muted small">· ${esc(!h.available ? 'unavailable' : h.control_state === 'slave' ? 'slave (follows another HeatMeister)' : (h.control_state || 'no control state'))}</span></div>
-          <div class="hmgrid">
+        <div class="txt"><div class="primary">${esc(h.name)} <span class="muted small">· ${esc(h.follows ? `slave of ${h.follows}` : !h.available ? 'unavailable' : h.control_state === 'slave' ? 'slave' : (h.control_state || 'no control state'))}</span></div>
+          ${h.follows && h.inlet == null && h.room == null && h.fan_speed == null ? `<div class="secondary">No own values: this HeatMeister follows ${esc(h.follows)}${h.running ? ', which is running' : ''}.</div>` : ''}
+          <div class="hmgrid${h.follows && h.inlet == null && h.room == null && h.fan_speed == null ? ' hidden' : ''}">
             <span>Radiator in <b>${v(h.inlet)}</b></span>
             <span>Out <b>${v(h.outlet)}</b></span>
             <span>Room <b>${v(h.room)}</b>${h.room_control ? ` · target ${v(h.room_target)}` : ''}</span>
@@ -336,13 +337,19 @@ async function loadSettingsPage() {
   $('s-delay').value = s.away_delay_minutes;
   $('s-km').value = s.coming_home_km;
   const chosen = new Map(s.heatmeisters.map((h) => [h.prefix, h]));
+  // A slave not set up yet: suggest the first HeatMeister that is not a slave.
+  const firstMaster = entities.heatmeisters.find((h) => h.control_state !== 'slave');
   $('s-hms').innerHTML = entities.heatmeisters.map((h) => {
     const c = chosen.get(h.prefix);
+    const follows = c ? (c.follows || '') : (h.control_state === 'slave' && firstMaster ? firstMaster.prefix : '');
+    const opts = `<option value="">– none (master or alone) –</option>` + entities.heatmeisters.filter((m) => m.prefix !== h.prefix)
+      .map((m) => `<option value="${esc(m.prefix)}" ${m.prefix === follows ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
     return `<tr data-prefix="${esc(h.prefix)}" data-name="${esc(h.name)}">
       <td><input type="checkbox" ${c ? 'checked' : ''} aria-label="Show ${esc(h.name)}"></td>
-      <td><b>${esc(h.name)}</b><div class="muted small">${esc(h.prefix)}</div></td>
+      <td><b>${esc(h.name)}</b><div class="muted small">${esc(h.prefix)}${h.control_state ? ` · ${esc(h.control_state)}` : ''}</div></td>
+      <td><select data-f="follows" aria-label="Follows">${opts}</select></td>
       <td><input type="text" value="${esc(c ? c.topic : h.topic)}" maxlength="100" aria-label="MQTT topic"></td></tr>`;
-  }).join('') || '<tr><td colspan="3" class="muted">No HeatMeisters found (entities like sensor.heatbooster_…_temp_inlet).</td></tr>';
+  }).join('') || '<tr><td colspan="4" class="muted">No HeatMeisters found (entities like sensor.heatbooster_…_temp_inlet).</td></tr>';
   $('s-room-source').innerHTML = `<option value="">The thermostat's room temperature</option>` + entities.temperatures.map((t) =>
     `<option value="${esc(t.entity_id)}" ${t.entity_id === s.room_temperature_source ? 'selected' : ''}>${esc(t.name)} (${esc(t.state)} °C)</option>`).join('');
   $('s-room-interval').value = s.room_temperature_interval;
@@ -369,7 +376,7 @@ $('settings-form').addEventListener('submit', async (e) => {
     coming_home_km: Number($('s-km').value),
     heatmeisters: [...document.querySelectorAll('#s-hms tr[data-prefix]')]
       .filter((tr) => tr.querySelector('input[type=checkbox]').checked)
-      .map((tr) => ({ prefix: tr.dataset.prefix, name: tr.dataset.name, topic: tr.querySelector('input[type=text]').value.trim() })),
+      .map((tr) => ({ prefix: tr.dataset.prefix, name: tr.dataset.name, topic: tr.querySelector('input[type=text]').value.trim(), follows: tr.querySelector('[data-f=follows]').value })),
     schedule_needs_presence: $('s-needs-presence').checked,
     heatmeister_send: $('s-hm-send').value,
     room_temperature_source: $('s-room-source').value,

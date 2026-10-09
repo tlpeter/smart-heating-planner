@@ -8,14 +8,14 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 
 | Test | Passed |
 |---|---|
-| Settings and situations | 22 of 22 ✓ |
+| Settings and situations | 23 of 23 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
 | HeatMeister temperature (MQTT on) | 8 of 8 ✓ |
 | Week schedule | 10 of 10 ✓ |
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
-| HeatMeisters | 11 of 11 ✓ |
+| HeatMeisters | 12 of 12 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
@@ -43,6 +43,7 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 - ✓ location unknown counts as home
 - ✓ manual hold: wins, then ends
 - ✓ HeatMeisters: their own state is shown, nothing is sent to them
+- ✓ master and slaves: wrong combinations are refused
 - ✓ thermostat unavailable: no change advised, the page still works
 - ✓ activity: one line per change, never "sent"
 - ✓ diagnostics: download without names of persons
@@ -161,7 +162,8 @@ Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_
 - ✓ all known parts are recognised, and similar names are not mixed up
 - ✓ reading one: temperatures, fan, room control
 - ✓ running: the fan status and fan speed decide, not the control state
-- ✓ a "slave" HeatMeister with the fan at 0 % is not running
+- ✓ a "slave" HeatMeister is not running by itself; with own fan data, that decides
+- ✓ a HeatMeister without a control state still shows its values (like Woonkamer-gang)
 - ✓ without fan status or fan speed, the control state is used (slave does not count)
 - ✓ unknown prefix or unavailable device
 - ✓ newer "heatmeister_" names work too

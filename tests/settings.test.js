@@ -52,7 +52,7 @@ test('settings are saved', async () => {
     away_temp: 16,
     away_delay_minutes: 0,
     coming_home_km: 10,
-    heatmeisters: [{ prefix: 'heatbooster_woonkamer_garage', name: 'Woonkamer-garage' }, { prefix: 'heatbooster_woonkamer_voor', name: 'Woonkamer-voor' }, { prefix: 'heatbooster_woonkamer_gang', name: 'Woonkamer-gang', topic: 'woonkamer-gang/temp-ambient-ext' }],
+    heatmeisters: [{ prefix: 'heatbooster_woonkamer_garage', name: 'Woonkamer-garage' }, { prefix: 'heatbooster_woonkamer_voor', name: 'Woonkamer-voor', follows: 'heatbooster_woonkamer_garage' }, { prefix: 'heatbooster_woonkamer_gang', name: 'Woonkamer-gang', topic: 'woonkamer-gang/temp-ambient-ext', follows: 'heatbooster_woonkamer_garage' }],
     schedule: flat(20.5),
   });
   assert.equal(r.status, 200, JSON.stringify(r.data));
@@ -225,8 +225,31 @@ test('HeatMeisters: their own state is shown, nothing is sent to them', async ()
   assert.equal(wg.fan_speed, 55);
   assert.equal(wg.inlet, 48.5);
   assert.equal(wg.room_control, true);
-  assert.equal(s.heatmeisters.find((h) => h.prefix === 'heatbooster_woonkamer_gang').running, false);
+  const voor = s.heatmeisters.find((h) => h.prefix === 'heatbooster_woonkamer_voor');
+  assert.equal(voor.follows, 'Woonkamer-garage');
+  assert.equal(voor.running, true, 'a slave without own fan data runs with its master');
+  const gang = s.heatmeisters.find((h) => h.prefix === 'heatbooster_woonkamer_gang');
+  assert.equal(gang.follows, 'Woonkamer-garage');
+  assert.equal(gang.running, false, 'own fan data at 0 % wins over the master');
+  fakeHa.world.hm[0].state = 'idle';
+  fakeHa.world.hm[0].fan = 0;
+  const after = await refreshed();
+  assert.equal(after.heatmeisters.find((h) => h.prefix === 'heatbooster_woonkamer_voor').running, false);
   fakeHa.world.hvacAction = 'idle';
+});
+
+test('master and slaves: wrong combinations are refused', async () => {
+  const hms = (list) => save({ heatmeisters: list });
+  let r = await hms([{ prefix: 'heatbooster_woonkamer_voor', name: 'Voor', follows: 'heatbooster_woonkamer_voor' }]);
+  assert.equal(r.status, 400, 'follows itself');
+  r = await hms([{ prefix: 'heatbooster_woonkamer_voor', name: 'Voor', follows: 'heatbooster_woonkamer_garage' }]);
+  assert.equal(r.status, 400, 'master not ticked');
+  r = await hms([
+    { prefix: 'heatbooster_woonkamer_garage', name: 'Garage', follows: 'heatbooster_woonkamer_gang' },
+    { prefix: 'heatbooster_woonkamer_voor', name: 'Voor', follows: 'heatbooster_woonkamer_garage' },
+    { prefix: 'heatbooster_woonkamer_gang', name: 'Gang' },
+  ]);
+  assert.equal(r.status, 400, 'follows a slave');
 });
 
 test('thermostat unavailable: no change advised, the page still works', async () => {

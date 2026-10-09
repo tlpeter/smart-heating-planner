@@ -28,7 +28,7 @@ function defaults() {
     coming_home_km: 10,
     hold_default_minutes: 120,
     manual_change_until: 'next',
-    heatmeisters: [], // [{ prefix, name, topic }]
+    heatmeisters: [], // [{ prefix, name, topic, follows }]
     // What the HeatMeisters get over MQTT: the thermostat's setpoint (like the
     // owner's Node-RED flow) or a room temperature.
     heatmeister_send: 'setpoint',
@@ -144,8 +144,21 @@ function validate(input) {
         const name = String((h && h.name) || prefix).trim().slice(0, 40);
         const topic = String((h && h.topic) || defaultTopic(name)).trim();
         if (!/^[A-Za-z0-9_\-./ ]{1,100}$/.test(topic) || /[#+]/.test(topic)) { errors.push(`${name}: "${topic}" is not a valid MQTT topic (no + or #)`); continue; }
-        v.heatmeisters.push({ prefix, name, topic });
+        // follows: the master HeatMeister this one is an MQTT slave of ('' = none).
+        const follows = String((h && h.follows) || '');
+        if (follows && (follows === prefix || !/^(heatbooster|heatmeister|heat_meister)_[a-z0-9_]+$/.test(follows))) { errors.push(`${name}: cannot follow "${follows}"`); continue; }
+        v.heatmeisters.push({ prefix, name, topic, follows });
       }
+    }
+  }
+  // A HeatMeister can only follow a master that is also chosen, and not a slave itself.
+  if ('heatmeisters' in input && Array.isArray(v.heatmeisters)) {
+    const chosen = new Map(v.heatmeisters.map((h) => [h.prefix, h]));
+    for (const h of v.heatmeisters) {
+      if (!h.follows) continue;
+      const m = chosen.get(h.follows);
+      if (!m) errors.push(`${h.name} follows a HeatMeister that is not ticked`);
+      else if (m.follows) errors.push(`${h.name} follows ${m.name}, which follows another one itself`);
     }
   }
   if ('schedule' in input) {

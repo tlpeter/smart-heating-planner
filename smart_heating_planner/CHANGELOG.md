@@ -4,6 +4,7 @@
 
 - Home › Who is home only shows the persons who count for home; the others (for example admin or tablet users) are hidden.
 - HeatMeisters: "running" now comes from the fan status and fan speed. A HeatMeister in "slave" mode with its fan at 0 % was wrongly shown as running.
+- HeatMeisters: new setting **Follows (MQTT slave of)** per HeatMeister. Home shows "slave of Woonkamer-garage"; a slave without values of its own shows as running when its master runs.
 
 ## 0.4.1-dev
 

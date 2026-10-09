@@ -46,11 +46,22 @@ test('running: the fan status and fan speed decide, not the control state', () =
   assert.equal(hm.read(fakeHa.states(), 'heatbooster_woonkamer_garage').running, false, 'fan at 0 % is off');
 });
 
-test('a "slave" HeatMeister with the fan at 0 % is not running', () => {
-  fakeHa.world.hm[1].state = 'slave';
-  assert.equal(hm.read(fakeHa.states(), 'heatbooster_woonkamer_voor').running, false);
+test('a "slave" HeatMeister is not running by itself; with own fan data, that decides', () => {
+  const voor = () => hm.read(fakeHa.states(), 'heatbooster_woonkamer_voor');
+  assert.equal(voor().control_state, 'slave');
+  assert.equal(voor().inlet, null, 'no own values, like the real Woonkamer-voor');
+  assert.equal(voor().running, false);
+  fakeHa.world.hm[1].noData = false;
   fakeHa.world.hm[1].fan = 30;
-  assert.equal(hm.read(fakeHa.states(), 'heatbooster_woonkamer_voor').running, true);
+  assert.equal(voor().running, true);
+});
+
+test('a HeatMeister without a control state still shows its values (like Woonkamer-gang)', () => {
+  const gang = hm.read(fakeHa.states(), 'heatbooster_woonkamer_gang');
+  assert.equal(gang.control_state, null);
+  assert.equal(gang.available, true);
+  assert.equal(gang.room, 23.2);
+  assert.equal(gang.running, false);
 });
 
 test('without fan status or fan speed, the control state is used (slave does not count)', () => {
@@ -65,6 +76,7 @@ test('without fan status or fan speed, the control state is used (slave does not
 test('unknown prefix or unavailable device', () => {
   assert.equal(hm.read(fakeHa.states(), 'heatbooster_nope').available, false);
   const states = fakeHa.states().map((s) => (s.entity_id.includes('woonkamer_gang') ? { ...s, state: 'unavailable' } : s));
+  // (all entities of Woonkamer-gang unavailable)
   assert.equal(hm.read(states, 'heatbooster_woonkamer_gang').available, false);
 });
 

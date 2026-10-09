@@ -98,6 +98,7 @@ function read(states, prefix) {
     room: num(val('room')),
     room_control: val('room_control') === 'on',
     room_target: num(val('room_target')),
+    fan_on_known: val('fan_on') !== null,
     boost: val('boost') === 'on',
     manual: val('manual_mode') === 'on',
   };
