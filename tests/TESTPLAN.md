@@ -14,7 +14,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
-| HeatMeisters | 6 of 6 ✓ |
+| HeatMeisters | not run |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
@@ -139,12 +139,7 @@ Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_
 
 `node tests/heatmeister.test.js`
 
-- ✓ the three HeatMeisters are found, with readable names
-- ✓ all known parts are recognised, and similar names are not mixed up
-- ✓ reading one: temperatures, fan, room control
-- ✓ running while heating or in overrun
-- ✓ unknown prefix or unavailable device
-- ✓ newer "heatmeister_" names work too
+Not run.
 
 ## Finding entities
 
