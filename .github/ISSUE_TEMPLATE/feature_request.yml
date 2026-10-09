@@ -1,0 +1,16 @@
+name: Idea or question
+description: A new feature, a thermostat or fan that is not supported yet, or a question
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: Describe what you want to do and why. For a new device, name the Home Assistant integration (and link it).
+    validations:
+      required: true
+  - type: textarea
+    id: entities
+    attributes:
+      label: Entities (for a new device, optional)
+      description: The entities the integration gives you, for example from Settings › Devices › your device. A diagnostics file helps too.

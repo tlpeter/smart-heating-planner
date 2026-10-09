@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Heating</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7 3h2v18H7zm4 0h2v18h-2zm4 0h2v18h-2zM4 8h16v2H4zm0 6h16v2H4z" opacity=".9"/></svg>
+      </span>
+      <span>Smart Heating</span>
+      <span id="version" class="muted small"></span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-page="home" role="tab">Home</button>
+      <button class="tab" data-page="schedule" role="tab">Schedule</button>
+      <button class="tab" data-page="activity" role="tab">Activity</button>
+      <button class="tab" data-page="settings" role="tab">Settings</button>
+    </nav>
+  </header>
+
+  <div id="banner" class="banner">Watch only: the app shows what it <em>would</em> do and sends nothing to the thermostat or the Heatmeisters.</div>
+  <div id="error" class="error hidden"></div>
+
+  <main>
+    <!-- HOME -->
+    <section id="page-home" class="page">
+      <div id="setup-hint" class="card hint hidden">
+        Start in <a href="#" data-goto="settings">Settings</a>: choose the thermostat and the persons that count for "home".
+      </div>
+
+      <div class="card advice">
+        <div class="advice-main">
+          <div class="label">Advice now</div>
+          <div class="big"><span id="adv-target">–</span><span class="unit">°C</span></div>
+          <div id="adv-reason" class="reason">Waiting for Home Assistant…</div>
+        </div>
+        <div class="advice-side">
+          <div class="label">Thermostat</div>
+          <div class="row"><span>Room</span><b id="th-current">–</b></div>
+          <div class="row"><span>Set to</span><b id="th-target">–</b></div>
+          <div class="row"><span>Heating</span><b id="th-action">–</b></div>
+          <div id="adv-change" class="pill hidden"></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Who is home</h2>
+          <ul id="persons" class="chips"></ul>
+          <p id="presence-note" class="muted small"></p>
+        </div>
+        <div class="card">
+          <h2>Schedule</h2>
+          <div class="row"><span>Now (since <span id="sch-since">–</span>)</span><b id="sch-now">–</b></div>
+          <div class="row"><span>Next at <span id="sch-next-time">–</span></span><b id="sch-next">–</b></div>
+          <p id="sch-in" class="muted small"></p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Manual hold</h2>
+        <div id="hold-active" class="hidden">
+          <p><b id="hold-temp"></b> until <b id="hold-until"></b></p>
+          <button id="hold-end" class="btn">End hold</button>
+        </div>
+        <form id="hold-form" class="inline">
+          <label>Temperature
+            <input id="hold-temp-in" type="number" min="5" max="25" step="0.5" value="20.5">
+          </label>
+          <label>For
+            <select id="hold-for">
+              <option value="60">1 hour</option>
+              <option value="120" selected>2 hours</option>
+              <option value="240">4 hours</option>
+              <option value="next">Until the next switch point</option>
+            </select>
+          </label>
+          <button class="btn primary" type="submit">Hold</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Heatmeisters</h2>
+        <div id="hm-list"></div>
+      </div>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section id="page-schedule" class="page hidden">
+      <div class="card">
+        <h2>Week schedule</h2>
+        <p class="muted small">Each switch point is valid until the next one. <b>Preheat</b>: also heat when nobody is home (for example just before you come home from work).</p>
+        <div id="schedule"></div>
+        <div class="actions">
+          <button id="copy-mon" class="btn">Copy Monday to Tue–Fri</button>
+          <button id="save-schedule" class="btn primary">Save schedule</button>
+        </div>
+        <p id="schedule-msg" class="small"></p>
+      </div>
+    </section>
+
+    <!-- ACTIVITY -->
+    <section id="page-activity" class="page hidden">
+      <div class="card">
+        <h2>Activity</h2>
+        <p class="muted small">One line every time the advice changes. "Sent" stays "no" while the app only watches.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>Advice</th><th>Thermostat</th><th>Why</th><th>Heatmeisters</th><th>Sent</th></tr></thead>
+            <tbody id="activity"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="page-settings" class="page hidden">
+      <form id="settings-form">
+        <div class="card">
+          <h2>Thermostat</h2>
+          <label>Thermostat entity
+            <select id="s-thermostat"></select>
+          </label>
+          <p id="s-thermostat-note" class="small"></p>
+        </div>
+
+        <div class="card">
+          <h2>Presence</h2>
+          <p class="muted small">The house is "occupied" when at least one of these persons is in the Home zone (Companion App).</p>
+          <div id="s-persons" class="checks"></div>
+          <div class="grid2">
+            <label>Away temperature (°C)
+              <input id="s-away" type="number" min="5" max="22" step="0.5">
+            </label>
+            <label>Wait before lowering (minutes)
+              <input id="s-delay" type="number" min="0" max="120" step="1">
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>On the way home (optional)</h2>
+          <p class="muted small">With the Proximity integration: heat by the schedule when someone is close to home and travelling towards it.</p>
+          <div class="grid2">
+            <label>Distance sensor
+              <select id="s-dist"></select>
+            </label>
+            <label>Direction of travel sensor
+              <select id="s-dir"></select>
+            </label>
+            <label>Start within (km)
+              <input id="s-km" type="number" min="0.5" max="200" step="0.5">
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Heatmeisters</h2>
+          <p class="muted small">Choose per Heatmeister the entity that switches it (from the SDR Engineering MQTT device) and, if there is one, its radiator (inlet) temperature.</p>
+          <div id="s-hms"></div>
+          <button id="s-hm-add" type="button" class="btn">Add Heatmeister</button>
+          <div class="grid2">
+            <label>Run when
+              <select id="s-hm-mode">
+                <option value="both">The thermostat heats, or the radiator is still warm</option>
+                <option value="demand">The thermostat heats</option>
+                <option value="inlet">The radiator is warm</option>
+              </select>
+            </label>
+            <label>Radiator warm from (°C)
+              <input id="s-hm-on" type="number" min="20" max="80" step="1">
+            </label>
+            <label>Radiator cool below (°C)
+              <input id="s-hm-off" type="number" min="15" max="75" step="1">
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Manual hold</h2>
+          <label>Default length (minutes)
+            <input id="s-hold" type="number" min="15" max="1440" step="15">
+          </label>
+        </div>
+
+        <div class="actions sticky">
+          <button class="btn primary" type="submit">Save settings</button>
+          <a class="btn" href="api/diagnostics" download>Download diagnostics</a>
+          <span id="settings-msg" class="small"></span>
+        </div>
+      </form>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

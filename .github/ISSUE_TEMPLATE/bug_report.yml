@@ -1,0 +1,54 @@
+name: Bug report
+description: Something does not work as it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! The more of the fields below you fill in, the faster it can be found.
+        **Please attach the diagnostics file**: in the app, Settings › *Download diagnostics*. Names of persons, places and the token are removed from it.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown next to "Smart Heating" at the top of the app
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.10.1"
+  - type: input
+    id: thermostat
+    attributes:
+      label: Thermostat (brand, model, integration)
+      placeholder: "tado V3+ Smart Thermostat, HomeKit Device"
+    validations:
+      required: true
+  - type: input
+    id: fans
+    attributes:
+      label: Heatmeisters or other radiator fans (if any)
+      placeholder: "3 × Heatmeister, MQTT (SDR Engineering)"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did the app do instead? Times help (for example "at 17:00 it should have advised 20.5 °C").
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log lines (optional)
+      description: From the app log in Home Assistant.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I attached the diagnostics file, or explained why not
+          required: false

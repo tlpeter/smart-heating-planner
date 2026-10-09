@@ -1,0 +1,20 @@
+homeassistant:
+  name: Smart Heating Planner compatibility test
+  latitude: 51.37
+  longitude: 5.19
+  elevation: 0
+  unit_system: metric
+  time_zone: Europe/Amsterdam
+  country: NL
+  currency: EUR
+
+default_config:
+
+# Demo entities, among them climate entities with a target temperature.
+demo:
+
+person:
+  - name: Peter
+    id: peter
+  - name: Yvonne
+    id: yvonne
