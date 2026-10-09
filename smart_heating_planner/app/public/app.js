@@ -9,6 +9,13 @@ const ICONS = {"home": "M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z", "schedule"
 function icon(name) {
   return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] || ''}"/></svg>`;
 }
+// A running fan spins, like the Mushroom card-mod trick: faster at a higher
+// fan speed (100 % about 0.6 s per turn, low speed about 3 s).
+function spinSeconds(speed) {
+  const s = Number(speed);
+  if (!Number.isFinite(s) || s <= 0) return 1.5;
+  return Math.round((3 - Math.min(100, s) / 100 * 2.4) * 10) / 10;
+}
 function fillIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
 }
@@ -161,7 +168,7 @@ function renderStatus(s) {
   $('hm-list').innerHTML = hms.length
     ? `<p class="muted small">Thermostat asks for heat: <b>${s.demand ? 'yes' : 'no'}</b></p>` + rtLine + hms.map((h) => `
       <div class="hm">
-        <span class="shape ${h.running ? 'c-purple' : 'c-grey'}">${icon(h.running ? 'fan' : 'fanOff')}</span>
+        <span class="shape ${h.running ? 'c-purple spin' : 'c-grey'}" style="${h.running ? `--spin:${spinSeconds(h.fan_speed)}s` : ''}">${icon(h.running ? 'fan' : 'fanOff')}</span>
         <div class="txt"><div class="primary">${esc(h.name)} <span class="muted small">· ${esc(h.follows ? `slave of ${h.follows}` : !h.available ? 'unavailable' : h.control_state === 'slave' ? 'slave' : (h.control_state || 'no control state'))}</span></div>
           ${h.follows && h.inlet == null && h.room == null && h.fan_speed == null ? `<div class="secondary">No own values: this HeatMeister follows ${esc(h.follows)}${h.running ? ', which is running' : ''}.</div>` : ''}
           <div class="hmgrid${h.follows && h.inlet == null && h.room == null && h.fan_speed == null ? ' hidden' : ''}">

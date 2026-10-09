@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.5-dev
+
+- HeatMeisters: the fan icon spins while the fan runs, faster at a higher fan speed (like the Mushroom card-mod animation). No animation when your device asks for less motion.
+
 ## 0.4.4-dev
 
 - HeatMeisters: entity ids that end in `_2`, `_3`, … (Home Assistant adds that when an id existed before) are now found. Woonkamer-voor showed no values because of this.

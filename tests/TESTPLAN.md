@@ -19,7 +19,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.4.4.
+Version: 0.4.5.
 
 ## Settings and situations
 
