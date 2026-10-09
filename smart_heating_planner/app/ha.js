@@ -4,10 +4,10 @@
 // Connects through the Supervisor, authenticates, and lets the rest of the app
 // read states and registries.
 //
-// SAFETY: this version only READS. There is no way in this file to call an
-// action (service) or change a state. Controlling the thermostat and the
-// Heatmeisters will get its own, separate path in a later version, behind an
-// "Allow control" option that is off by default.
+// SAFETY: the app mostly READS. The one write is setting the target
+// temperature of the chosen thermostat (climate.set_temperature), and only
+// through setTemperature() below, only when "Allow control" is on in the
+// Configuration tab. Anything else is refused.
 
 const WebSocket = require('ws');
 const { options } = require('./options');
@@ -55,12 +55,18 @@ const READ_ONLY_COMMANDS = new Set([
   'config/device_registry/list',
 ]);
 
+const CONTROL_TOKEN = Symbol('thermostat control');
+
 // Send a command to Home Assistant and wait for its result.
-function call(message, timeoutMs = 20000) {
+function call(message, timeoutMs = 20000, token = null) {
   return new Promise((resolve, reject) => {
-    if (!READ_ONLY_COMMANDS.has(message.type)) {
-      warn('Refused command', message.type, '- it is not on the read-only list');
-      reject(new Error(`Command ${message.type} is not allowed: this version only reads data`));
+    const allowed = READ_ONLY_COMMANDS.has(message.type) ||
+      // The only write: the thermostat's target, through setTemperature().
+      (message.type === 'call_service' && token === CONTROL_TOKEN && options.allow_control === true &&
+        message.domain === 'climate' && message.service === 'set_temperature');
+    if (!allowed) {
+      warn('Refused command', message.type, message.domain ? `${message.domain}.${message.service}` : '', '- not allowed');
+      reject(new Error(`Command ${message.type} is not allowed`));
       return;
     }
     if (!state.connected) {
@@ -77,6 +83,29 @@ function call(message, timeoutMs = 20000) {
       }
     }, timeoutMs);
   });
+}
+
+// Set the target temperature of the thermostat. Refused unless "Allow
+// control" is on, and only for the thermostat chosen in Settings.
+async function setTemperature(entityId, temperature, chosen) {
+  if (options.allow_control !== true) {
+    warn('Refused climate.set_temperature - "Allow control" is off');
+    throw new Error('Allow control is off in the app\'s Configuration tab, so nothing was sent');
+  }
+  if (!/^climate\.[a-z0-9_]+$/.test(String(entityId)) || entityId !== chosen) {
+    warn('Refused climate.set_temperature for', entityId, '- not the chosen thermostat');
+    throw new Error(`${entityId} is not the chosen thermostat`);
+  }
+  const t = Number(temperature);
+  if (!Number.isFinite(t) || t < 5 || t > 25) throw new Error(`${temperature} °C is outside 5-25 °C`);
+  log('SENDING to thermostat:', entityId, t, '°C');
+  return call({
+    type: 'call_service',
+    domain: 'climate',
+    service: 'set_temperature',
+    service_data: { temperature: t },
+    target: { entity_id: entityId },
+  }, 20000, CONTROL_TOKEN);
 }
 
 function onConnect(fn) {
@@ -141,4 +170,4 @@ function connect() {
   });
 }
 
-module.exports = { state, call, onConnect, connect, recentLog, log, debug, warn, READ_ONLY_COMMANDS };
+module.exports = { state, call, setTemperature, onConnect, connect, recentLog, log, debug, warn, READ_ONLY_COMMANDS };

@@ -11,5 +11,5 @@
 ## Safety
 
 - [ ] The app still never changes automations, scripts, helpers or Node-RED flows
-- [ ] The app still only sends read-only commands (or, once control exists: nothing is controlled while "Allow control" is off, and only the chosen thermostat and Heatmeisters)
+- [ ] Nothing is controlled while "Allow control" is off, and with it on only the target temperature of the chosen thermostat
 - [ ] Version bumped in config.yaml, package.json and package-lock.json, and a changelog entry added

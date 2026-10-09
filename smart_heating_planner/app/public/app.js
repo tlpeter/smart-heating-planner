@@ -5,6 +5,7 @@
 const $ = (id) => document.getElementById(id);
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_NAMES = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+const EVENT = { advice: 'Advice', sent: 'Sent', manual: 'Changed by hand', error: 'Error' };
 const SOURCE = { schedule: 'Schedule', away: 'Away', preheat: 'Preheat', approaching: 'On the way', hold: 'Manual hold' };
 
 let settings = null;
@@ -63,6 +64,17 @@ function renderStatus(s) {
   }
   tz = s.timeZone;
   showError(s.error ? `Last refresh failed: ${s.error}` : '');
+  $('banner').classList.toggle('hidden', s.mode === 'control');
+  $('banner-control').classList.toggle('hidden', s.mode !== 'control');
+  const last = s.control && s.control.last;
+  const ctl = $('ctl-last');
+  ctl.classList.toggle('hidden', !(s.mode === 'control' && last));
+  if (s.mode === 'control' && last) {
+    ctl.textContent = last.error
+      ? `Sending failed at ${clock(last.at)}: ${last.error}`
+      : last.sent ? `Sent at ${clock(last.at)}: ${last.why}` : `Not sent: ${last.why}`;
+    ctl.textContent += ` · ${s.control.writesToday} of ${s.control.maxWritesPerDay} changes in 24 h`;
+  }
   $('setup-hint').classList.toggle('hidden', s.setup.thermostat && s.setup.persons > 0);
 
   const a = s.advice;
@@ -76,7 +88,11 @@ function renderStatus(s) {
   if (th.available) {
     ch.classList.remove('hidden');
     ch.className = `pill ${a.change ? 'change' : 'same'}`;
-    ch.textContent = a.change ? `Would change ${t1(th.target)} → ${t1(a.target)}` : 'Thermostat already matches';
+    const verb = s.mode === 'control' ? 'Will change' : 'Would change';
+    const sentNow = s.mode === 'control' && s.control.lastSent && s.control.lastSent.temp === a.target && s.at - s.control.lastSent.at < 5 * 60000;
+    ch.textContent = !a.change ? 'Thermostat already matches'
+      : sentNow ? `Sent ${t1(a.target)}, waiting for the thermostat to show it`
+        : `${verb} ${t1(th.target)} → ${t1(a.target)}`;
   } else ch.classList.add('hidden');
 
   const p = s.presence;
@@ -105,6 +121,7 @@ function renderStatus(s) {
   $('hold-active').classList.toggle('hidden', !s.hold);
   $('hold-form').classList.toggle('hidden', !!s.hold);
   if (s.hold) {
+    $('hold-what').textContent = s.hold.source === 'thermostat' ? 'Changed on the thermostat: keeping' : 'Holding';
     $('hold-temp').textContent = t1(s.hold.temp);
     $('hold-until').textContent = dateTime(s.hold.until);
   }
@@ -204,11 +221,11 @@ async function loadActivity() {
     $('activity').innerHTML = rows.map((r) => `
       <tr>
         <td class="num">${dateTime(r.at)}</td>
+        <td>${esc(EVENT[r.event || 'advice'] || r.event)}</td>
         <td class="num">${t1(r.target)}</td>
         <td class="num">${t1(r.thermostat)}</td>
         <td>${esc(SOURCE[r.source] || r.source)} · ${esc(r.reason)}</td>
         <td>${(r.heatmeisters || []).map((h) => `${esc(h.name)}: ${h.on ? 'on' : 'off'}`).join(', ') || '–'}</td>
-        <td>${r.sent ? 'yes' : 'no'}</td>
       </tr>`).join('') || '<tr><td colspan="6" class="muted">Nothing yet.</td></tr>';
   } catch (err) { showError(err.message); }
 }
@@ -280,6 +297,7 @@ async function loadSettingsPage() {
   $('s-hm-on').value = s.heatmeister_rule.inlet_on;
   $('s-hm-off').value = s.heatmeister_rule.inlet_off;
   $('s-hold').value = s.hold_default_minutes;
+  $('s-manual').value = s.manual_change_until;
 }
 $('s-thermostat').addEventListener('change', thermostatNote);
 
@@ -294,6 +312,7 @@ $('settings-form').addEventListener('submit', async (e) => {
     heatmeisters: hms,
     heatmeister_rule: { mode: $('s-hm-mode').value, inlet_on: Number($('s-hm-on').value), inlet_off: Number($('s-hm-off').value) },
     hold_default_minutes: Number($('s-hold').value),
+    manual_change_until: $('s-manual').value,
   };
   try {
     settings = await api('api/settings', { method: 'POST', body });

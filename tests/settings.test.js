@@ -1,75 +1,35 @@
 'use strict';
 
 // The real app against a fake Home Assistant (tests/fake-ha.js), used through
-// the same API as the page. Checks what is saved, what is refused, what the
-// advice is in each situation, and that the app never sends anything that
-// writes to Home Assistant.
+// the same API as the page, with "Allow control" OFF (the default). Checks
+// what is saved, what is refused, what the advice is in each situation, and
+// that the app never sends anything that writes to Home Assistant.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('fs');
-const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
 const fakeHa = require('./fake-ha');
+const { startApp, APP } = require('./app-runner');
 
-const APP = path.join(__dirname, '..', 'smart_heating_planner', 'app');
 const PORT = Number(process.env.SHP_TEST_PORT) || 18199;
 const BASE = `http://127.0.0.1:${PORT}`;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const { READ_ONLY_COMMANDS } = require(path.join(APP, 'ha.js'));
 
 let app;
-let dataDir;
-let fake;
-
-async function req(method, p, body) {
-  const res = await fetch(BASE + p, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = text; }
-  return { status: res.status, data, headers: res.headers };
-}
+const req = (...a) => app.req(...a);
 const status = async () => (await req('GET', '/api/status')).data;
 const save = (body) => req('POST', '/api/settings', body);
 // One switch point all week: the advice does not depend on the clock.
 const flat = (temp, preheat = false) => Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((d) => [d, [{ time: '00:00', temp, preheat }]]));
 
-test.before(async () => {
-  fake = await fakeHa.start(0);
-  dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shp-settings-'));
-  fs.writeFileSync(path.join(dataDir, 'options.json'), JSON.stringify({ log_level: 'info', refresh_seconds: 600 }));
-  app = spawn(process.execPath, ['server.js'], {
-    cwd: APP,
-    env: { ...process.env, DATA_DIR: dataDir, HA_WS_URL: fake.url, HA_TOKEN: 'test-token', SHP_PORT: String(PORT) },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  app.stdout.on('data', () => {});
-  app.stderr.on('data', () => {});
-  for (let i = 0; i < 100; i++) {
-    try {
-      const s = await status();
-      if (s.connected && s.ready) return;
-    } catch { /* not up yet */ }
-    await sleep(100);
-  }
-  throw new Error('The app did not start');
-});
-
-test.after(() => {
-  if (app) app.kill();
-  if (fake) fake.wss.close();
-  fs.rmSync(dataDir, { recursive: true, force: true });
-});
+test.before(async () => { app = await startApp({ port: PORT }); });
+test.after(() => { if (app) app.stop(); });
 
 test('fresh install: connected, nothing chosen, setup hint data', async () => {
   const s = await status();
   assert.equal(s.connected, true);
   assert.equal(s.mode, 'watch');
+  assert.equal(s.control.allowed, false);
   assert.deepEqual(s.setup, { thermostat: false, persons: 0, heatmeisters: 0 });
   assert.equal(s.presence.noPersons, true);
   assert.equal(s.advice.source, 'schedule');
@@ -226,7 +186,7 @@ test('thermostat unavailable: no change advised, the page still works', async ()
 test('activity: one line per change, never "sent"', async () => {
   const { data } = await req('GET', '/api/activity');
   assert.ok(data.length >= 5);
-  assert.ok(data.every((r) => r.sent === false));
+  assert.ok(data.every((r) => r.sent === false && r.event === 'advice'));
 });
 
 test('diagnostics: download without names of persons', async () => {
@@ -247,7 +207,7 @@ test('large or broken requests are refused', async () => {
   assert.equal((await req('GET', '/api/nope')).status, 404);
 });
 
-test('SAFETY: the app only sent read-only commands to Home Assistant', () => {
+test('SAFETY: with "Allow control" off the app only sent read-only commands', () => {
   const types = new Set(fakeHa.calls.map((c) => c.type));
   for (const t of types) assert.ok(READ_ONLY_COMMANDS.has(t), `the app sent ${t}`);
   assert.ok(!fakeHa.calls.some((c) => c.type === 'call_service'));

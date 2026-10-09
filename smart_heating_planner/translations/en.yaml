@@ -1,4 +1,10 @@
 configuration:
+  allow_control:
+    name: Allow control
+    description: "Off: the app only shows what it would do. On: it sets the target temperature of the thermostat chosen in the app. Turn your other heating control (for example Node-RED) off first."
+  max_writes_per_day:
+    name: Most changes per 24 hours
+    description: The app never sets the thermostat more often than this. Keep it low (about 20) for a tado cloud thermostat; tado allows 100 cloud requests per day without a subscription.
   refresh_seconds:
     name: Refresh (seconds)
     description: How often the app reads Home Assistant and works out its advice.

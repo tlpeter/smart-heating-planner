@@ -33,7 +33,9 @@ function decideTarget(input) {
   if (hold && hold.until > now) {
     target = roundTemp(hold.temp);
     source = 'hold';
-    reason = `Manual hold until ${fmtTime(hold.until, timeZone)}`;
+    reason = hold.source === 'thermostat'
+      ? `Changed on the thermostat: kept until ${fmtTime(hold.until, timeZone)}`
+      : `Manual hold until ${fmtTime(hold.until, timeZone)}`;
   } else if (!point) {
     target = away;
     source = 'away';

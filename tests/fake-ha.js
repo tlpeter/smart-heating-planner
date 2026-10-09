@@ -5,7 +5,9 @@
 // the tado cloud with Tado CE), three persons with the Companion App, the
 // Proximity integration, and three Heatmeisters through MQTT (SDR
 // Engineering). Change `world` to change the house. Every command the app
-// sends is recorded in `calls`; the tests check that nothing writes.
+// sends is recorded in `calls`; the tests check what was written.
+// climate.set_temperature changes world.target (both thermostat entities
+// show the same tado).
 
 const path = require('path');
 const WebSocket = require(path.join(__dirname, '..', 'smart_heating_planner', 'app', 'node_modules', 'ws'));
@@ -19,6 +21,7 @@ function freshWorld() {
     target: 19,
     hvacAction: 'idle',
     homekitAvailable: true,
+    failWrites: false,
     persons: { peter: 'home', yvonne: 'not_home', cheyenne: 'not_home' },
     distanceKm: 0,
     direction: 'arrived',
@@ -104,6 +107,12 @@ function start(port = 0) {
         if (msg.type === 'get_config') return ok({ time_zone: TZ, version: HA_VERSION, unit_system: { temperature: '°C' } });
         if (msg.type === 'config/entity_registry/list') return ok(registries().entities);
         if (msg.type === 'config/device_registry/list') return ok(registries().devices);
+        // The thermostat's target. world.failWrites makes it fail.
+        if (msg.type === 'call_service' && msg.domain === 'climate' && msg.service === 'set_temperature') {
+          if (world.failWrites) return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'home_assistant_error', message: 'Thermostat did not answer' } }));
+          world.target = Number(msg.service_data.temperature);
+          return ok({ context: { id: 'x' } });
+        }
         return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'unknown_command', message: 'Unknown command.' } }));
       });
     });

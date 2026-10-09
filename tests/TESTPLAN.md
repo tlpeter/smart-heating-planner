@@ -9,17 +9,19 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Test | Passed |
 |---|---|
 | Settings and situations | 17 of 17 ✓ |
+| Control (Allow control on) | 10 of 10 ✓ |
 | Week schedule | 10 of 10 ✓ |
 | Presence | 8 of 8 ✓ |
 | Decision | 13 of 13 ✓ |
+| When to send | 8 of 8 ✓ |
 | Finding entities | 5 of 5 ✓ |
 | Saving | 4 of 4 ✓ |
 
-Version: 0.1.0.
+Version: 0.2.0.
 
 ## Settings and situations
 
-The real app against a fake Home Assistant (tado over HomeKit and Tado CE, Peter, Yvonne and Cheyenne, Proximity, three Heatmeisters over MQTT). Everything goes through the same API as the page.
+The real app ("Allow control" off) against a fake Home Assistant (tado over HomeKit and Tado CE, Peter, Yvonne and Cheyenne, Proximity, three Heatmeisters over MQTT). Everything goes through the same API as the page.
 
 `node tests/settings.test.js`
 
@@ -39,7 +41,24 @@ The real app against a fake Home Assistant (tado over HomeKit and Tado CE, Peter
 - ✓ activity: one line per change, never "sent"
 - ✓ diagnostics: download without names of persons
 - ✓ large or broken requests are refused
-- ✓ SAFETY: the app only sent read-only commands to Home Assistant
+- ✓ SAFETY: with "Allow control" off the app only sent read-only commands
+
+## Control (Allow control on)
+
+The real app with "Allow control" on: sets the HomeKit thermostat only when the advice changes, keeps a change made by hand, waits between writes, respects the daily limit and survives a failing thermostat.
+
+`node tests/control-app.test.js`
+
+- ✓ control on, but nothing chosen yet: nothing is sent
+- ✓ someone home: the thermostat is set to the schedule
+- ✓ when it already matches, nothing more is sent
+- ✓ everybody leaves: away temperature is sent
+- ✓ back home within the short wait: not sent yet, then sent
+- ✓ a change by hand on the thermostat is kept as a hold, not overwritten
+- ✓ ending the hold goes back to the schedule
+- ✓ a failing thermostat: logged, not hammered
+- ✓ the daily limit stops further writes
+- ✓ SAFETY: only climate.set_temperature, only on the chosen thermostat
 
 ## Week schedule
 
@@ -92,6 +111,21 @@ Which temperature and why; the Heatmeister rule with its gap.
 - ✓ Heatmeister "both": runs on demand, and after it while the radiator is warm
 - ✓ Heatmeister gap: between "off" and "on" it keeps what it was
 - ✓ Heatmeister "demand": only while the thermostat heats
+
+## When to send
+
+The rules for writing to the thermostat and for noticing a change by hand.
+
+`node tests/control.test.js`
+
+- ✓ send when the advice differs and nothing blocks it
+- ✓ do not send when it already matches, is unavailable or is off
+- ✓ at least 2 minutes between two writes
+- ✓ never more than the daily limit; old writes drop off after 24 hours
+- ✓ recordWrite remembers the value and keeps only the last 24 hours
+- ✓ a change by hand: the thermostat shows something else than the app set
+- ✓ no change by hand right after a write (the thermostat may still be busy)
+- ✓ no change by hand without an earlier write, or when unavailable
 
 ## Finding entities
 

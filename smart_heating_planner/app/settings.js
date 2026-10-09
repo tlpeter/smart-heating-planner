@@ -21,6 +21,7 @@ function defaults() {
     away_delay_minutes: 10,
     proximity: { distance_entity: '', direction_entity: '', distance_km: 10 },
     hold_default_minutes: 120,
+    manual_change_until: 'next',
     heatmeisters: [],
     heatmeister_rule: { mode: 'both', inlet_on: 35, inlet_off: 30 },
     schedule: schedule.defaultSchedule(),
@@ -88,6 +89,10 @@ function validate(input) {
   if ('away_temp' in input) v.away_temp = schedule.roundTemp(num(input.away_temp, 5, 22, 'Away temperature', errors, old.away_temp));
   if ('away_delay_minutes' in input) v.away_delay_minutes = Math.round(num(input.away_delay_minutes, 0, 120, 'Away delay', errors, old.away_delay_minutes));
   if ('hold_default_minutes' in input) v.hold_default_minutes = Math.round(num(input.hold_default_minutes, 15, 1440, 'Default hold', errors, old.hold_default_minutes));
+  if ('manual_change_until' in input) {
+    if (['next', 'minutes'].includes(input.manual_change_until)) v.manual_change_until = input.manual_change_until;
+    else errors.push('A change on the thermostat lasts until "next" (switch point) or "minutes"');
+  }
   if ('proximity' in input) {
     const p = input.proximity || {};
     v.proximity = {

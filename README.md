@@ -2,7 +2,7 @@
 
 A Home Assistant app that heats your house on a week schedule and on who is home, with a tado° thermostat and optional Heatmeister radiator fans.
 
-> Status: early development, **watch only**. The app shows what it *would* do and sends nothing to the thermostat or the Heatmeisters. Control comes in a later version, behind an option that is off by default. See [ROADMAP.md](ROADMAP.md).
+> Status: early development. By default the app only **watches**: it shows what it *would* do. With **Allow control** on (Configuration tab) it sets the thermostat itself. The Heatmeisters are not controlled yet. See [ROADMAP.md](ROADMAP.md).
 
 ## Installation
 
@@ -23,7 +23,7 @@ The test version may contain unfinished or less-tested changes. Its version numb
 6. Go to **Settings** in the app: choose the thermostat, the persons that count for "home", and your Heatmeisters.
 
 > [!WARNING]
-> Install only one version. Once control is added, two installations would both try to set the same thermostat.
+> Install only one version. With control on in both, they would both set the same thermostat. Also turn off any other heating control (for example Node-RED) before you turn on **Allow control**.
 
 ## What it does
 
@@ -34,6 +34,7 @@ The test version may contain unfinished or less-tested changes. Its version numb
 | Nobody home, switch point with **Preheat** | Heats anyway, so the house is warm when you come home. |
 | Someone is on the way home | Heats by the schedule again (optional, with the Proximity integration). |
 | You want it warmer for a while | **Manual hold** on the Home page: a temperature for 1, 2 or 4 hours, or until the next switch point. Ends by itself. |
+| Someone turns the tado up or down | With control on, the app keeps that temperature until the next switch point, instead of overwriting it. |
 | The radiators are warm | The Heatmeisters should run: while the thermostat heats, and/or while the radiator (inlet) temperature is high. |
 
 A person with an unknown location counts as home: better warm than cold.
@@ -44,7 +45,7 @@ The full explanation of every option is in [DOCS.md](smart_heating_planner/DOCS.
 
 ## tado° and the daily limit
 
-tado limits its cloud API: without an Auto-Assist subscription only **100 requests per day**. The app therefore prefers a **local HomeKit** thermostat (the HomeKit Device integration) and marks cloud thermostats (tado, Tado CE) with a warning. When control is added, the app writes only when the target really changes.
+tado limits its cloud API: without an Auto-Assist subscription only **100 requests per day**. The app therefore prefers a **local HomeKit** thermostat (the HomeKit Device integration) and marks cloud thermostats (tado, Tado CE) with a warning. With control on, the app writes only when the target really changes, at least 2 minutes apart, and never more than a set number of times per 24 hours.
 
 ## What you need
 

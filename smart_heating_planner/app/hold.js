@@ -1,7 +1,9 @@
 'use strict';
 
-// A manual hold: "keep the house at 21 °C for 2 hours", set on the Home page.
-// It ends by itself. Saved in /data/hold.json so it survives a restart.
+// A manual hold: "keep the house at 21 °C for 2 hours", set on the Home page
+// (source "app"), or noticed when someone changed the thermostat by hand
+// (source "thermostat"). It ends by itself. Saved in /data/hold.json so it
+// survives a restart.
 
 const path = require('path');
 const { readJson, writeJsonAtomic } = require('./jsonstore');
@@ -17,11 +19,11 @@ function get(now = Date.now()) {
 }
 
 // until: end time in ms. Returns { ok, error, hold }.
-function set(temp, until, now = Date.now()) {
+function set(temp, until, now = Date.now(), source = 'app') {
   const t = Number(temp);
   if (!Number.isFinite(t) || t < MIN_TEMP || t > MAX_TEMP) return { ok: false, error: `Temperature must be between ${MIN_TEMP} and ${MAX_TEMP} °C` };
   if (!(until > now) || until - now > 7 * 86400000) return { ok: false, error: 'The end time must be within the next 7 days' };
-  const hold = { temp: roundTemp(t), until: Math.round(until), since: now };
+  const hold = { temp: roundTemp(t), until: Math.round(until), since: now, source: source === 'thermostat' ? 'thermostat' : 'app' };
   writeJsonAtomic(FILE, hold);
   return { ok: true, hold };
 }

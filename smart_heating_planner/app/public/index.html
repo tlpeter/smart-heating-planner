@@ -24,6 +24,7 @@
   </header>
 
   <div id="banner" class="banner">Watch only: the app shows what it <em>would</em> do and sends nothing to the thermostat or the Heatmeisters.</div>
+  <div id="banner-control" class="banner control hidden">Control is on: the app sets the thermostat's target temperature. The Heatmeisters are not controlled yet.</div>
   <div id="error" class="error hidden"></div>
 
   <main>
@@ -45,6 +46,7 @@
           <div class="row"><span>Set to</span><b id="th-target">–</b></div>
           <div class="row"><span>Heating</span><b id="th-action">–</b></div>
           <div id="adv-change" class="pill hidden"></div>
+          <p id="ctl-last" class="muted small hidden"></p>
         </div>
       </div>
 
@@ -65,7 +67,7 @@
       <div class="card">
         <h2>Manual hold</h2>
         <div id="hold-active" class="hidden">
-          <p><b id="hold-temp"></b> until <b id="hold-until"></b></p>
+          <p><span id="hold-what">Holding</span> <b id="hold-temp"></b> until <b id="hold-until"></b></p>
           <button id="hold-end" class="btn">End hold</button>
         </div>
         <form id="hold-form" class="inline">
@@ -108,10 +110,10 @@
     <section id="page-activity" class="page hidden">
       <div class="card">
         <h2>Activity</h2>
-        <p class="muted small">One line every time the advice changes. "Sent" stays "no" while the app only watches.</p>
+        <p class="muted small">One line every time the advice changes, every time the app sets the thermostat ("Sent"), and every time someone changed the thermostat by hand.</p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Time</th><th>Advice</th><th>Thermostat</th><th>Why</th><th>Heatmeisters</th><th>Sent</th></tr></thead>
+            <thead><tr><th>Time</th><th>What</th><th>Temperature</th><th>Thermostat was</th><th>Why</th><th>Heatmeisters</th></tr></thead>
             <tbody id="activity"></tbody>
           </table>
         </div>
@@ -127,6 +129,13 @@
             <select id="s-thermostat"></select>
           </label>
           <p id="s-thermostat-note" class="small"></p>
+          <label>A change on the thermostat itself (or in the tado app) is kept
+            <select id="s-manual">
+              <option value="next">until the next switch point</option>
+              <option value="minutes">for the default hold length (below)</option>
+            </select>
+          </label>
+          <p class="muted small">Only with "Allow control" on (Configuration tab). Turn your other heating control (Node-RED, tado schedule changes) off first: the app would see their changes as changes by hand.</p>
         </div>
 
         <div class="card">

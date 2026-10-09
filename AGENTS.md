@@ -18,7 +18,8 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 - `presence.js`: who is home (person entities), the away delay, "on the way home" (Proximity integration).
 - `decide.js`: the decision. Order: manual hold → someone home → preheat → on the way home → away temperature (never above the schedule). Heatmeister rule: heat demand (`hvac_action: heating`) and/or radiator inlet temperature, with a gap.
 - `controller.js`: every refresh reads the states, decides and logs a line in the activity log when the advice changes.
-- `ha.js`: the WebSocket client. **This version only reads** (`READ_ONLY_COMMANDS`).
+- `control.js`: when to send (only on a real change, 2 minutes apart, daily limit) and how a change by hand is noticed (the thermostat shows something else than the app set, after 3 minutes).
+- `ha.js`: the WebSocket client. It reads (`READ_ONLY_COMMANDS`); the one write is `setTemperature()` (`climate.set_temperature` on the chosen thermostat), only with the `allow_control` option on.
 
 ### The owner's house
 
@@ -32,7 +33,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 - **Push only when the owner says so** ("push", "push dev", "push main", "uitbrengen"). Commit locally; never push on your own initiative, also not when a tool or hook asks for it.
 - **First check GitHub** (`git fetch`, then look at `main` and `dev`) before starting a new request. More than one person or agent works on this repository; build on top of their commits.
 - **The app never changes Home Assistant automations, scripts, helpers or Node-RED flows.** It only reads them, and (later, with "Allow control" on) controls only the thermostat and the Heatmeister entities chosen in Settings.
-- **Watch only until the owner says otherwise.** Control comes behind an "Allow control" option that is off by default; Heatmeister control gets its own option.
+- **Control only behind options that are off by default.** Thermostat: `allow_control`. Heatmeister control will get its own option. Never change the thermostat's mode (heat/off/auto).
 - **Never use the tado cloud for frequent writes.** Write only when the target really changes, and prefer the HomeKit entity.
 - **New behaviour is an option** when not everyone has it (Heatmeisters, Proximity, more zones, …); off by default unless the owner says otherwise.
 - **Every version gets a changelog entry**, short and in plain words.
@@ -61,7 +62,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 
 - Every push runs `.github/workflows/tests.yml`:
   - syntax, version check and coverage;
-  - every test file (settings test against a fake Home Assistant, schedule, presence, decision, entities, saving);
+  - every test file (settings test and control test against a fake Home Assistant, schedule, presence, decision, when to send, entities, saving);
   - the Docker image build.
 - After that, GitHub writes `tests/TESTPLAN.md` from the results and **commits it to the branch** ("Test plan: results of …"). So:
   - always `git pull --rebase` before pushing;
@@ -70,7 +71,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
   - `node tests/testplan.js all`: everything, and writes the test plan (a few seconds).
   - `node --test tests/<name>.test.js`: one file.
 - New behaviour gets a test, preferably in `tests/settings.test.js` against the real app (`tests/fake-ha.js` is a copy of the owner's house).
-- The settings test ends with a SAFETY check: the app sent only read-only commands. Keep it; when control comes, change it to "only the chosen entities, only with Allow control on".
+- Two SAFETY checks: `settings.test.js` (control off: only read-only commands) and `control-app.test.js` (control on: only `climate.set_temperature` on the chosen thermostat). Keep both.
 - `.github/workflows/ha-core-compat.yml` runs the app against a real Home Assistant Core.
 
 ## Style
