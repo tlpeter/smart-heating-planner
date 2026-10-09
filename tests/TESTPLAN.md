@@ -8,18 +8,18 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 
 | Test | Passed |
 |---|---|
-| Settings and situations | 23 of 23 ✓ |
+| Settings and situations | 25 of 25 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
 | HeatMeister temperature (MQTT on) | 9 of 9 ✓ |
 | Week schedule | 10 of 10 ✓ |
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
-| HeatMeisters | 14 of 14 ✓ |
+| HeatMeisters | 16 of 16 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.4.5.
+Version: 0.4.6.
 
 ## Settings and situations
 
@@ -48,6 +48,8 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 - ✓ activity: one line per change, never "sent"
 - ✓ diagnostics: download without names of persons
 - ✓ large or broken requests are refused
+- ✓ live: a change of a HeatMeister fan shows without waiting for the timer
+- ✓ live: saving other HeatMeisters asks for live updates of the new list
 - ✓ the temperature for the HeatMeisters (setpoint) is shown, but not sent while its option is off
 - ✓ SAFETY: with "Allow control" off the app only sent read-only commands
 
@@ -173,6 +175,8 @@ Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_
 - ✓ the default MQTT topic is "<Name>/temp-ambient-ext", like the Node-RED flow
 - ✓ send on a change of 0.1 °C, or every 15 seconds
 - ✓ a new thermostat setpoint sends right away, also when the room temperature is the same
+- ✓ fan step: every 10 % of fan speed is one step (the icon turns faster per step)
+- ✓ entity ids of one HeatMeister: also the "_2" ones, not the WiFi values
 
 ## Finding entities
 
