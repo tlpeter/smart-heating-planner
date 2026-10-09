@@ -39,3 +39,12 @@ test('recognised by name alone, without the device registry', () => {
   assert.equal(r.controls.length, 1);
   assert.equal(r.controls[0].heatmeister, true);
 });
+
+test('old "heatbooster" entity ids with a "HeatMeister - …" name are recognised', () => {
+  const r = detect([
+    { entity_id: 'sensor.heatbooster_woonkamer_garage_demand_trim', state: '0.00', attributes: { friendly_name: 'HeatMeister - Woonkamer-garage Demand trim', unit_of_measurement: '°C', device_class: 'temperature' } },
+    { entity_id: 'fan.heatbooster_woonkamer_garage', state: 'off', attributes: { friendly_name: 'Woonkamer-garage fan' } },
+  ]);
+  assert.equal(r.temperatures[0].heatmeister, true);
+  assert.equal(r.controls[0].heatmeister, true);
+});

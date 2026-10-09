@@ -69,11 +69,13 @@ function detect(states, entities = [], devices = []) {
 }
 
 // Heatmeister entities come in through MQTT (SDR Engineering). Recognise them
-// by the device's maker or model, or by "heatmeister" in the name.
+// by the device's maker or model, or by "heatmeister" in the name. The
+// product used to be called "Heatbooster"; older entity ids still use it
+// (for example sensor.heatbooster_... named "HeatMeister - Woonkamer ...").
 function isHeatmeister(id, st, device) {
   const text = [id, friendly(st), device && device.manufacturer, device && device.model, device && device.name]
     .filter(Boolean).join(' ').toLowerCase();
-  return /heat\s*meister|sdr engineering/.test(text);
+  return /heat\s*meister|heat\s*booster|sdr engineering/.test(text);
 }
 
 module.exports = { detect, TADO_CLOUD };
