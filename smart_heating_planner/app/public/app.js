@@ -115,9 +115,9 @@ function renderStatus(s) {
   const p = s.presence;
   const way = new Map((p.onTheWay || []).map((w) => [w.entity_id, w]));
   const zone = (z) => (z === 'not_home' ? 'away' : String(z || '').replace(/_/g, ' '));
-  const chips = (p.people || []).map((x) => {
+  // Persons that do not count are not shown here (Settings › Presence).
+  const chips = (p.people || []).filter((x) => x.counts).map((x) => {
     const chip = (cls, ico, text) => `<li class="${cls}"><span class="dot">${icon(ico)}</span>${esc(text)}</li>`;
-    if (!x.counts) return chip('', 'person', `${x.name} · does not count`);
     if (x.status === 'home') return chip('home', 'home', `${x.name} · home`);
     if (x.status === 'unknown') return chip('unknown', 'alert', `${x.name} · location unknown`);
     const w = way.get(x.entity_id);

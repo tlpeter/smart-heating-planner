@@ -13,7 +13,7 @@ By default the app only **watches**: it shows what it would do and logs it on th
 
 - **Advice now**: the temperature the thermostat should have, and why (Schedule, Away, Preheat, On the way, Manual hold).
 - **Thermostat**: the room temperature, what it is set to, and whether it is heating. "Would change 19.0 °C → 20.5 °C" means the thermostat does not match the advice (with control on: "Will change"). With control on, the line below shows the last command and how many changes were made in the last 24 hours.
-- **Who is home**: per person home, away (with the zone, and the distance when coming home is on), location unknown, or "does not count".
+- **Who is home**: per person home, away (with the zone, and the distance when coming home is on), or location unknown. Persons who do not count are not shown.
 - **Schedule**: the switch point that is valid now, and the next one.
 - **Manual hold**: keep a temperature for 1, 2 or 4 hours, or until the next switch point. It wins over everything else and ends by itself. **End hold** stops it early. A change on the thermostat itself shows here too ("Changed on the thermostat: keeping 22 °C until 17:00").
 - **HeatMeisters**: per HeatMeister its control state (idle, heat, overrun, …), running or off, the radiator in/out temperature, the room temperature (and its own room target when it controls the room), and the fan speed. With sending on, also the room temperature last sent to it and when.

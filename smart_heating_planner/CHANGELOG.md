@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2-dev
+
+- Home › Who is home only shows the persons who count for home; the others (for example admin or tablet users) are hidden.
+
 ## 0.4.1-dev
 
 - The HeatMeisters now get the thermostat's **setpoint** by default, like the Node-RED flow (0.4.0-dev sent the measured room temperature). New setting **Send to the HeatMeisters**: the setpoint, or a room temperature (the thermostat's or another sensor).
