@@ -12,7 +12,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Week schedule | 10 of 10 ✓ |
 | Presence | 8 of 8 ✓ |
 | Decision | 13 of 13 ✓ |
-| Finding entities | 4 of 4 ✓ |
+| Finding entities | 5 of 5 ✓ |
 | Saving | 4 of 4 ✓ |
 
 Version: 0.1.0.
@@ -103,6 +103,7 @@ HomeKit thermostat first, tado cloud marked, Heatmeisters recognised.
 - ✓ persons and proximity sensors are found
 - ✓ Heatmeister entities are recognised and listed first
 - ✓ recognised by name alone, without the device registry
+- ✓ old "heatbooster" entity ids with a "HeatMeister - …" name are recognised
 
 ## Saving
 
