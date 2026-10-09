@@ -27,6 +27,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 - Three Heatmeisters (SDR Engineering), in Home Assistant through MQTT.
 - Persons: Peter, Yvonne and Cheyenne (Companion App).
 - His current heating control runs in Node-RED and stays on until he says the app takes over.
+- tado's own schedule is not used: all planning runs in Node-RED. So a target the app sets is not undone by tado.
 
 ## Hard rules
 
