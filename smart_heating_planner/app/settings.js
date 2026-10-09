@@ -34,7 +34,8 @@ function defaults() {
     heatmeister_send: 'setpoint',
     // For 'room': '' = the thermostat's room temperature, or a sensor.
     room_temperature_source: '',
-    room_temperature_interval: 5,
+    // HeatMeisters expect the value regularly (the owner's flow: every 15 s).
+    room_temperature_interval_seconds: 15,
     schedule: schedule.defaultSchedule(),
   };
 }
@@ -54,6 +55,7 @@ function load() {
   // Older versions: a Proximity sensor distance, and Heatmeisters by entity.
   if (saved.proximity && saved.coming_home_km === undefined && Number(saved.proximity.distance_km) > 0) out.coming_home_km = Number(saved.proximity.distance_km);
   delete out.proximity;
+  delete out.room_temperature_interval; // 0.4.x: minutes; now seconds
   delete out.heatmeister_rule;
   out.heatmeisters = (out.heatmeisters || []).filter((h) => h && h.prefix).map((h) => ({ ...h, topic: h.topic || defaultTopic(h.name) }));
   return out;
@@ -116,7 +118,7 @@ function validate(input) {
     else errors.push('Send to the HeatMeisters: "setpoint" or "room"');
   }
   if ('room_temperature_source' in input) v.room_temperature_source = entityOrEmpty(input.room_temperature_source, ['sensor'], 'Room temperature source', errors);
-  if ('room_temperature_interval' in input) v.room_temperature_interval = Math.round(num(input.room_temperature_interval, 1, 60, 'Send the temperature every', errors, old.room_temperature_interval));
+  if ('room_temperature_interval_seconds' in input) v.room_temperature_interval_seconds = Math.round(num(input.room_temperature_interval_seconds, 5, 600, 'Send the temperature every (seconds)', errors, old.room_temperature_interval_seconds));
   if ('away_temp' in input) v.away_temp = schedule.roundTemp(num(input.away_temp, 5, 22, 'Away temperature', errors, old.away_temp));
   if ('away_delay_minutes' in input) v.away_delay_minutes = Math.round(num(input.away_delay_minutes, 0, 120, 'Away delay', errors, old.away_delay_minutes));
   if ('hold_default_minutes' in input) v.hold_default_minutes = Math.round(num(input.hold_default_minutes, 15, 1440, 'Default hold', errors, old.hold_default_minutes));

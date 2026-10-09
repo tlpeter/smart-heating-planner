@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3-dev
+
+- HeatMeisters: the temperature is now sent **every 15 seconds** with its own timer, like the Node-RED flow (the HeatMeister expects it that often). The setting **Send it every** is now in seconds (5–600). Still also right away on a new setpoint.
+
 ## 0.4.2-dev
 
 - Home › Who is home only shows the persons who count for home; the others (for example admin or tablet users) are hidden.

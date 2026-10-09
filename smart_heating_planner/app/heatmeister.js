@@ -114,12 +114,13 @@ function defaultTopic(name) {
 // last: { value, at } of the last send, or undefined.
 // targetChanged: the thermostat's setpoint changed since the last refresh
 // (that is what the owner's Node-RED flow reacts to).
-// Sends then, when the value changed by 0.1 °C or more, or every intervalMinutes.
-function shouldPublish({ value, last, now, intervalMinutes, targetChanged = false }) {
+// Sends then, when the value changed by 0.1 °C or more, or every intervalSeconds
+// (a HeatMeister expects the value regularly, for example every 15 seconds).
+function shouldPublish({ value, last, now, intervalSeconds, targetChanged = false }) {
   if (!Number.isFinite(value)) return false;
   if (!last || targetChanged) return true;
   if (Math.abs(value - last.value) >= 0.1 - 1e-9) return true;
-  return now - last.at >= intervalMinutes * 60000;
+  return now - last.at >= intervalSeconds * 1000 - 500; // half a second slack for timer jitter
 }
 
 module.exports = { discover, read, nameFrom, defaultTopic, shouldPublish, PARTS, RUNNING };

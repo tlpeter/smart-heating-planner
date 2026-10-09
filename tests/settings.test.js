@@ -78,7 +78,7 @@ test('wrong settings are refused with a clear message', async () => {
     { manual_change_until: 'forever' },
     { heatmeisters: [{ prefix: 'heatbooster_woonkamer_garage', name: 'x', topic: 'Woonkamer-garage/#' }] },
     { room_temperature_source: 'climate.verwarming' },
-    { room_temperature_interval: 0 },
+    { room_temperature_interval_seconds: 2 },
     { heatmeister_send: 'both' },
   ];
   for (const body of cases) {

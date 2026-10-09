@@ -62,7 +62,7 @@ One line for every event, the last 500 are kept:
 | **MQTT topic** (per HeatMeister) | Where the HeatMeister listens for the temperature from outside. Default `<Name>/temp-ambient-ext`, for example `Woonkamer-garage/temp-ambient-ext`. Topics are case-sensitive: copy the exact topic your HeatMeister uses (for example `woonkamer-gang/temp-ambient-ext`). No `+` or `#`. |
 | **Send to the HeatMeisters** | *The thermostat's setpoint* (default, like a Node-RED flow that forwards the target temperature) or *A room temperature*. |
 | **Take the room temperature from** | Only with *A room temperature*: the thermostat's own room temperature, or another temperature sensor. |
-| **Send it at least every** | Minutes (1–60, default 5). The app sends the temperature when the thermostat's setpoint changes, when the temperature changes by 0.1 °C or more, and otherwise at least this often. |
+| **Send it every** | Seconds (5–600, default 15). HeatMeisters expect the value regularly; a Node-RED flow typically sends it every 15 seconds. The app also sends it right away when the thermostat's setpoint or the value changes. |
 | **A change on the thermostat itself is kept** | With control on: when someone turns the tado (or the tado app) to another temperature, the app keeps it *until the next switch point* (default) or *for the default hold length*. Then it goes back to the schedule. |
 | **Default length** | The default length of a manual hold, in minutes. |
 | **Download diagnostics** | A file to attach to a bug report. Names of persons, places and the token are left out. |
@@ -84,7 +84,7 @@ The first rule that applies wins:
 A HeatMeister listens on MQTT, topic `<Name>/temp-ambient-ext`, for a temperature from outside. With **Send temperature to HeatMeisters** on, the app sends it:
 
 1. It takes the thermostat's setpoint (default), or a room temperature (the thermostat's own, or the sensor you chose).
-2. For every ticked HeatMeister it sends the value to its topic right away when the thermostat's setpoint changes (by the app, by another automation or by hand), when the value changed by 0.1 °C or more, and otherwise every few minutes.
+2. For every ticked HeatMeister it sends the value to its topic every few seconds (default 15, with its own timer), and right away when the thermostat's setpoint changes (by the app, by another automation or by hand) or the value changes by 0.1 °C or more.
 3. Home shows the value and, per HeatMeister, what was sent and when. If MQTT is not reachable, Home shows the error and the app tries again at the next refresh.
 
 It goes through Home Assistant's MQTT integration (`mqtt.publish`), so the app needs no MQTT login of its own.

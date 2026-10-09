@@ -8,7 +8,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fakeHa = require('./fake-ha');
-const { startApp } = require('./app-runner');
+const { startApp, sleep } = require('./app-runner');
 
 const PORT = Number(process.env.SHP_MQTT_TEST_PORT) || 18197;
 const TOPICS = ['Woonkamer-garage/temp-ambient-ext', 'Woonkamer-voor/temp-ambient-ext', 'woonkamer-gang/temp-ambient-ext'];
@@ -39,6 +39,7 @@ test('by default the thermostat setpoint goes to every chosen HeatMeister', asyn
       { prefix: 'heatbooster_woonkamer_voor', name: 'Woonkamer-voor' },
       { prefix: 'heatbooster_woonkamer_gang', name: 'Woonkamer-gang', topic: 'woonkamer-gang/temp-ambient-ext' },
     ],
+    room_temperature_interval_seconds: 600, // no timer sends during the first tests
   });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19'], t);
@@ -91,6 +92,14 @@ test('MQTT down: shown as an error, tried again later', async () => {
   s = await refreshed();
   assert.equal(s.roomTemperature.last.sent, true);
   assert.equal(fakeHa.world.mqtt[TOPICS[2]].at(-1), '22');
+});
+
+test('sent again by itself every N seconds, like the Node-RED flow (every 15 s)', async () => {
+  await save({ room_temperature_interval_seconds: 5 });
+  const n = fakeHa.world.mqtt[TOPICS[0]].length;
+  await sleep(11500); // two ticks of 5 s, no refresh in between
+  for (const t of TOPICS) assert.ok(fakeHa.world.mqtt[t].length >= n + 2, `${t}: ${fakeHa.world.mqtt[t].length - n} new`);
+  assert.equal(fakeHa.world.mqtt[TOPICS[0]].at(-1), '22', 'the same setpoint, sent again');
 });
 
 test('SAFETY: only mqtt.publish, only to the chosen topics, never the thermostat', () => {

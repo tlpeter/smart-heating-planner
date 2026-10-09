@@ -51,21 +51,30 @@ function roomTemperature(states, s, thermostat) {
   return thermostat && thermostat.available ? thermostat.current : null;
 }
 
-// With "Send temperature to HeatMeisters" on: send it to each topic
-// when it changed, and every few minutes.
-async function sendRoomTemperature(st, now) {
+// With "Send temperature to HeatMeisters" on: send it to each topic on a
+// new setpoint, when it changed, and every few seconds (own timer below).
+let mqttBusy = false;
+async function publishAll(value, thermostat, now) {
+  if (mqttBusy) return;
+  mqttBusy = true;
+  try {
+    await publishAllNow(value, thermostat, now);
+  } finally {
+    mqttBusy = false;
+  }
+}
+async function publishAllNow(value, thermostat, now) {
   const s = settings.get();
   memory.mqtt = memory.mqtt || {};
-  const value = st.roomTemperature.value;
   const topics = s.heatmeisters.map((h) => h.topic).filter(Boolean);
   // A new setpoint on the thermostat (by the app, the schedule in Node-RED or
-  // by hand): send right away, like the Node-RED flow does.
-  const target = st.thermostat && st.thermostat.available ? st.thermostat.target : null;
+  // by hand): send right away.
+  const target = thermostat && thermostat.available ? thermostat.target : null;
   const targetChanged = target !== null && memory.mqttTarget !== undefined && memory.mqttTarget !== null && target !== memory.mqttTarget;
   if (target !== null) memory.mqttTarget = target;
   let sent = 0;
   for (const topic of topics) {
-    if (!heatmeister.shouldPublish({ value, last: memory.mqtt[topic], now, intervalMinutes: s.room_temperature_interval, targetChanged })) continue;
+    if (!heatmeister.shouldPublish({ value, last: memory.mqtt[topic], now, intervalSeconds: s.room_temperature_interval_seconds, targetChanged })) continue;
     try {
       await ha.publishRoomTemperature(topic, value, topics);
       memory.mqtt[topic] = { value, at: now };
@@ -79,10 +88,43 @@ async function sendRoomTemperature(st, now) {
   }
   // Forget topics that are no longer used.
   for (const t of Object.keys(memory.mqtt)) if (!topics.includes(t)) delete memory.mqtt[t];
-  if (sent || lastMqtt) writeJsonAtomic(MEMORY_FILE, memory);
+  if (sent) writeJsonAtomic(MEMORY_FILE, memory);
+}
+
+// Put the latest sends into a status for the page.
+function withMqtt(st) {
+  if (!st || !st.ready) return st;
   st.roomTemperature.last = lastMqtt;
-  st.heatmeisters = st.heatmeisters.map((h) => ({ ...h, sent: memory.mqtt[h.topic] || null }));
+  st.heatmeisters = st.heatmeisters.map((h) => ({ ...h, sent: (memory.mqtt || {})[h.topic] || null }));
   return st;
+}
+
+async function sendRoomTemperature(st, now) {
+  await publishAll(st.roomTemperature.value, st.thermostat, now);
+  return withMqtt(st);
+}
+
+// The own timer: read the states and send, every room_temperature_interval_seconds.
+let mqttTimer = null;
+async function mqttTick() {
+  const s = settings.get();
+  if (!options.allow_heatmeister_temperature || !s.heatmeisters.length || !ha.state.connected) return;
+  try {
+    const states = await ha.call({ type: 'get_states' });
+    const thermostat = thermostatFrom(states, s.thermostat);
+    await publishAll(roomTemperature(states, s, thermostat), thermostat, Date.now());
+    status = withMqtt(status);
+  } catch (err) {
+    ha.warn('Sending the temperature to the HeatMeisters failed:', err.message);
+  }
+}
+function scheduleMqtt() {
+  if (mqttTimer) clearTimeout(mqttTimer);
+  if (!options.allow_heatmeister_temperature) return;
+  mqttTimer = setTimeout(async () => {
+    await mqttTick();
+    scheduleMqtt();
+  }, Math.max(5, settings.get().room_temperature_interval_seconds) * 1000);
 }
 
 function thermostatFrom(states, id) {
@@ -258,6 +300,7 @@ function start() {
   if (timer) clearInterval(timer);
   timer = setInterval(refresh, options.refresh_seconds * 1000);
   refresh();
+  scheduleMqtt();
 }
 
-module.exports = { evaluate, refresh, start, getStatus: () => status, thermostatFrom };
+module.exports = { evaluate, refresh, start, scheduleMqtt, getStatus: () => status, thermostatFrom };

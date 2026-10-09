@@ -95,18 +95,19 @@ test('the default MQTT topic is "<Name>/temp-ambient-ext", like the Node-RED flo
   assert.equal(hm.defaultTopic('Woonkamer-garage'), 'Woonkamer-garage/temp-ambient-ext');
 });
 
-test('send the room temperature on a change of 0.1 °C, or every few minutes', () => {
+test('send on a change of 0.1 °C, or every 15 seconds', () => {
   const now = 1_800_000_000_000;
-  assert.equal(hm.shouldPublish({ value: 21.4, last: undefined, now, intervalMinutes: 5 }), true);
-  assert.equal(hm.shouldPublish({ value: 21.45, last: { value: 21.4, at: now - 60000 }, now, intervalMinutes: 5 }), false);
-  assert.equal(hm.shouldPublish({ value: 21.5, last: { value: 21.4, at: now - 60000 }, now, intervalMinutes: 5 }), true);
-  assert.equal(hm.shouldPublish({ value: 21.4, last: { value: 21.4, at: now - 5 * 60000 }, now, intervalMinutes: 5 }), true);
-  assert.equal(hm.shouldPublish({ value: null, last: undefined, now, intervalMinutes: 5 }), false);
+  assert.equal(hm.shouldPublish({ value: 21.4, last: undefined, now, intervalSeconds: 15 }), true);
+  assert.equal(hm.shouldPublish({ value: 21.45, last: { value: 21.4, at: now - 5000 }, now, intervalSeconds: 15 }), false);
+  assert.equal(hm.shouldPublish({ value: 21.5, last: { value: 21.4, at: now - 5000 }, now, intervalSeconds: 15 }), true);
+  assert.equal(hm.shouldPublish({ value: 21.4, last: { value: 21.4, at: now - 15000 }, now, intervalSeconds: 15 }), true);
+  assert.equal(hm.shouldPublish({ value: 21.4, last: { value: 21.4, at: now - 10000 }, now, intervalSeconds: 15 }), false);
+  assert.equal(hm.shouldPublish({ value: null, last: undefined, now, intervalSeconds: 15 }), false);
 });
 
 test('a new thermostat setpoint sends right away, also when the room temperature is the same', () => {
   const now = 1_800_000_000_000;
-  const last = { value: 21.4, at: now - 60000 };
-  assert.equal(hm.shouldPublish({ value: 21.4, last, now, intervalMinutes: 5 }), false);
-  assert.equal(hm.shouldPublish({ value: 21.4, last, now, intervalMinutes: 5, targetChanged: true }), true);
+  const last = { value: 21.4, at: now - 5000 };
+  assert.equal(hm.shouldPublish({ value: 21.4, last, now, intervalSeconds: 15 }), false);
+  assert.equal(hm.shouldPublish({ value: 21.4, last, now, intervalSeconds: 15, targetChanged: true }), true);
 });

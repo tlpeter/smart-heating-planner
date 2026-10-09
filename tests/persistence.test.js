@@ -55,6 +55,7 @@ test('settings from 0.2 are taken over (persons, Proximity distance, old Heatmei
     proximity: { distance_entity: 'sensor.home_nearest_distance', direction_entity: '', distance_km: 7 },
     heatmeisters: [{ name: 'Woonkamer', control_entity: 'fan.x', inlet_entity: 'sensor.y' }],
     heatmeister_rule: { mode: 'both', inlet_on: 35, inlet_off: 30 },
+    room_temperature_interval: 5,
   }));
   const s = fresh('settings').get();
   assert.deepEqual(s.persons.map((p) => [p.entity_id, p.counts, p.coming_home]), [['person.peter', true, true], ['person.yvonne', true, true]]);
@@ -63,6 +64,8 @@ test('settings from 0.2 are taken over (persons, Proximity distance, old Heatmei
   assert.equal(s.heatmeister_rule, undefined);
   assert.deepEqual(s.heatmeisters, [], 'old Heatmeister picks are dropped; choose them again');
   assert.deepEqual(s.tracker_types, { gps: true, router: true, bluetooth: true });
+  assert.equal(s.room_temperature_interval, undefined, 'old minutes value dropped');
+  assert.equal(s.room_temperature_interval_seconds, 15);
 });
 
 test('no temporary files are left behind', () => {

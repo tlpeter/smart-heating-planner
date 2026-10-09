@@ -83,6 +83,7 @@ async function api(req, res, url) {
     if (!result.ok) return sendJson(res, 400, { error: result.errors.join('; '), errors: result.errors });
     ha.log('Settings saved:', Object.keys(body).join(', '));
     await controller.refresh();
+    controller.scheduleMqtt(); // a new interval or new HeatMeisters take effect now
     return sendJson(res, 200, result.value);
   }
   if (req.method === 'GET' && p === '/api/entities') {

@@ -352,11 +352,11 @@ async function loadSettingsPage() {
   }).join('') || '<tr><td colspan="4" class="muted">No HeatMeisters found (entities like sensor.heatbooster_…_temp_inlet).</td></tr>';
   $('s-room-source').innerHTML = `<option value="">The thermostat's room temperature</option>` + entities.temperatures.map((t) =>
     `<option value="${esc(t.entity_id)}" ${t.entity_id === s.room_temperature_source ? 'selected' : ''}>${esc(t.name)} (${esc(t.state)} °C)</option>`).join('');
-  $('s-room-interval').value = s.room_temperature_interval;
+  $('s-room-interval').value = s.room_temperature_interval_seconds;
   $('s-hm-send').value = s.heatmeister_send || 'setpoint';
   $('s-room-source-label').classList.toggle('hidden', $('s-hm-send').value !== 'room');
   $('s-room-note').innerHTML = (status && status.roomTemperature && status.roomTemperature.allowed)
-    ? 'The app sends this temperature to each ticked HeatMeister over MQTT (Home Assistant\'s MQTT integration): right away when the thermostat setpoint changes, when the value changes by 0.1 °C, and at least every few minutes.'
+    ? 'The app sends this temperature to each ticked HeatMeister over MQTT (Home Assistant\'s MQTT integration): every few seconds (default 15, like the Node-RED flow), and right away when the thermostat setpoint or the value changes.'
     : 'Sending is <b>off</b>. Turn on "Send temperature to HeatMeisters" in the app\'s Configuration tab. With "setpoint" it does the same as the Node-RED flow; both sending at the same time does no harm.';
   $('s-needs-presence').checked = s.schedule_needs_presence !== false;
   $('s-hold').value = s.hold_default_minutes;
@@ -380,7 +380,7 @@ $('settings-form').addEventListener('submit', async (e) => {
     schedule_needs_presence: $('s-needs-presence').checked,
     heatmeister_send: $('s-hm-send').value,
     room_temperature_source: $('s-room-source').value,
-    room_temperature_interval: Number($('s-room-interval').value),
+    room_temperature_interval_seconds: Number($('s-room-interval').value),
     hold_default_minutes: Number($('s-hold').value),
     manual_change_until: $('s-manual').value,
   };

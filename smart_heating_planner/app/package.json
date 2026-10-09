@@ -1,6 +1,6 @@
 {
   "name": "smart-heating-planner",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Heats the house on a schedule and on who is home, with tado and Heatmeister radiator fans.",
   "main": "server.js",
   "private": true,
