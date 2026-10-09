@@ -10,7 +10,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 |---|---|
 | Settings and situations | 22 of 22 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
-| HeatMeister room temperature (MQTT on) | 8 of 8 ✓ |
+| HeatMeister temperature (MQTT on) | 8 of 8 ✓ |
 | Week schedule | 10 of 10 ✓ |
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
@@ -19,7 +19,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.4.0.
+Version: 0.4.1.
 
 ## Settings and situations
 
@@ -47,7 +47,7 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 - ✓ activity: one line per change, never "sent"
 - ✓ diagnostics: download without names of persons
 - ✓ large or broken requests are refused
-- ✓ room temperature for the HeatMeisters is shown, but not sent while its option is off
+- ✓ the temperature for the HeatMeisters (setpoint) is shown, but not sent while its option is off
 - ✓ SAFETY: with "Allow control" off the app only sent read-only commands
 
 ## Control (Allow control on)
@@ -67,18 +67,18 @@ The real app with "Allow control" on: sets the HomeKit thermostat only when the 
 - ✓ the daily limit stops further writes
 - ✓ SAFETY: only climate.set_temperature, only on the chosen thermostat
 
-## HeatMeister room temperature (MQTT on)
+## HeatMeister temperature (MQTT on)
 
-The real app with "Send room temperature to HeatMeisters" on: like the Node-RED flow, the room temperature goes to "<Name>/temp-ambient-ext" for each chosen HeatMeister, on a change and every few minutes; only mqtt.publish to those topics.
+The real app with "Send temperature to HeatMeisters" on: like the Node-RED flow, the thermostat setpoint goes to "<Name>/temp-ambient-ext" for each chosen HeatMeister when it changes (or a room temperature, if chosen); only mqtt.publish to those topics.
 
 `node tests/heatmeister-app.test.js`
 
 - ✓ nothing is sent before HeatMeisters are chosen
-- ✓ the thermostat room temperature goes to every chosen HeatMeister
-- ✓ no new message while the temperature stays the same
-- ✓ a new setpoint on the thermostat sends right away (like the Node-RED flow)
-- ✓ a change of 0.1 °C or more is sent right away
-- ✓ another room temperature sensor can be the source
+- ✓ by default the thermostat setpoint goes to every chosen HeatMeister
+- ✓ no new message while the setpoint stays the same (the room temperature does not matter)
+- ✓ a new setpoint is sent right away (like the Node-RED flow)
+- ✓ "a room temperature": the thermostat room temperature, also on a new setpoint
+- ✓ "a room temperature" from another sensor
 - ✓ MQTT down: shown as an error, tried again later
 - ✓ SAFETY: only mqtt.publish, only to the chosen topics, never the thermostat
 

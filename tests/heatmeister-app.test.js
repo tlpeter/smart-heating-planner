@@ -1,8 +1,9 @@
 'use strict';
 
-// The real app with "Send room temperature to HeatMeisters" ON (and "Allow
-// control" off), against the fake Home Assistant. Like the owner's Node-RED
-// flow: the tado room temperature goes to "<Name>/temp-ambient-ext" over MQTT.
+// The real app with "Send temperature to HeatMeisters" ON (and "Allow control"
+// off), against the fake Home Assistant. Like the owner's Node-RED flow: the
+// thermostat setpoint goes to "<Name>/temp-ambient-ext" over MQTT when it
+// changes. Optional: a room temperature instead.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -30,7 +31,7 @@ test('nothing is sent before HeatMeisters are chosen', async () => {
   assert.equal(writes().length, 0);
 });
 
-test('the thermostat room temperature goes to every chosen HeatMeister', async () => {
+test('by default the thermostat setpoint goes to every chosen HeatMeister', async () => {
   const r = await save({
     thermostat: 'climate.tado_smart_thermostat_ru3010610432',
     heatmeisters: [
@@ -40,50 +41,56 @@ test('the thermostat room temperature goes to every chosen HeatMeister', async (
     ],
   });
   assert.equal(r.status, 200, JSON.stringify(r.data));
-  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19.4'], t);
+  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19'], t);
   const s = await status();
+  assert.equal(s.roomTemperature.send, 'setpoint');
   assert.equal(s.roomTemperature.last.sent, true);
-  assert.equal(s.heatmeisters[0].sent.value, 19.4);
+  assert.equal(s.heatmeisters[0].sent.value, 19);
 });
 
-test('no new message while the temperature stays the same', async () => {
+test('no new message while the setpoint stays the same (the room temperature does not matter)', async () => {
+  fakeHa.world.room = 20.5;
   await refreshed();
   for (const t of TOPICS) assert.equal(fakeHa.world.mqtt[t].length, 1);
 });
 
-test('a new setpoint on the thermostat sends right away (like the Node-RED flow)', async () => {
-  const before = fakeHa.world.mqtt[TOPICS[0]].length;
-  fakeHa.world.target = 21; // the setpoint changed, the room temperature did not
+test('a new setpoint is sent right away (like the Node-RED flow)', async () => {
+  fakeHa.world.target = 21;
   await refreshed();
-  for (const t of TOPICS) assert.equal(fakeHa.world.mqtt[t].length, before + 1, t);
-  assert.equal(fakeHa.world.mqtt[TOPICS[0]].at(-1), '19.4');
+  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19', '21'], t);
   await refreshed();
-  assert.equal(fakeHa.world.mqtt[TOPICS[0]].length, before + 1, 'no repeat while the setpoint stays');
+  assert.equal(fakeHa.world.mqtt[TOPICS[0]].length, 2, 'no repeat while the setpoint stays');
 });
 
-test('a change of 0.1 °C or more is sent right away', async () => {
-  fakeHa.world.room = 19.6;
+test('"a room temperature": the thermostat room temperature, also on a new setpoint', async () => {
+  await save({ heatmeister_send: 'room' });
+  assert.equal(fakeHa.world.mqtt[TOPICS[0]].at(-1), '20.5');
+  fakeHa.world.room = 20.7;
   await refreshed();
-  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19.4', '19.4', '19.6']);
+  assert.equal(fakeHa.world.mqtt[TOPICS[0]].at(-1), '20.7');
+  const n = fakeHa.world.mqtt[TOPICS[0]].length;
+  fakeHa.world.target = 19.5; // new setpoint, same room temperature
+  await refreshed();
+  assert.equal(fakeHa.world.mqtt[TOPICS[0]].length, n + 1);
 });
 
-test('another room temperature sensor can be the source', async () => {
+test('"a room temperature" from another sensor', async () => {
   await save({ room_temperature_source: 'sensor.woonkamer_temp_hum_temperature' });
   fakeHa.world.room = 20.3;
   await refreshed();
   assert.equal(fakeHa.world.mqtt[TOPICS[0]].at(-1), '20.3');
-  await save({ room_temperature_source: '' });
+  await save({ room_temperature_source: '', heatmeister_send: 'setpoint' });
 });
 
 test('MQTT down: shown as an error, tried again later', async () => {
   fakeHa.world.failMqtt = true;
-  fakeHa.world.room = 21;
+  fakeHa.world.target = 22;
   let s = await refreshed();
   assert.ok(s.roomTemperature.last.error);
   fakeHa.world.failMqtt = false;
   s = await refreshed();
   assert.equal(s.roomTemperature.last.sent, true);
-  assert.equal(fakeHa.world.mqtt[TOPICS[2]].at(-1), '21');
+  assert.equal(fakeHa.world.mqtt[TOPICS[2]].at(-1), '22');
 });
 
 test('SAFETY: only mqtt.publish, only to the chosen topics, never the thermostat', () => {

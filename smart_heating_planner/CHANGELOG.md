@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1-dev
+
+- The HeatMeisters now get the thermostat's **setpoint** by default, like the Node-RED flow (0.4.0-dev sent the measured room temperature). New setting **Send to the HeatMeisters**: the setpoint, or a room temperature (the thermostat's or another sensor).
+- The option in the Configuration tab is now called **Send temperature to HeatMeisters**.
+
 ## 0.4.0-dev
 
 - **Room temperature for the HeatMeisters**, like the Node-RED flow: new option **Send room temperature to HeatMeisters** (Configuration tab, off by default). The app sends the thermostat's room temperature (or another sensor) to `<Name>/temp-ambient-ext` over MQTT, right away when the thermostat's setpoint changes (like the Node-RED flow), when the room temperature changes by 0.1 °C, and at least every 5 minutes. Per HeatMeister you can change the topic (they are case-sensitive).

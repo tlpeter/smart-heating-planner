@@ -16,7 +16,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 
 - `schedule.js`: week schedule; a switch point (time, temperature, preheat) is valid until the next one.
 - `presence.js`: who is home per person (only the kinds of tracker that count: GPS, router, Bluetooth), the away delay, and "coming home" (distance from the GPS tracker to `zone.home`, getting closer).
-- `heatmeister.js`: finds HeatMeisters by entity names (`<domain>.heatbooster_<room>_<part>`) and reads them; `shouldPublish()` decides when the room temperature is sent again (new thermostat setpoint, change ≥ 0.1 °C, or interval).
+- `heatmeister.js`: finds HeatMeisters by entity names (`<domain>.heatbooster_<room>_<part>`) and reads them; `shouldPublish()` decides when the temperature is sent again (new thermostat setpoint, change ≥ 0.1 °C, or interval).
 - `decide.js`: the decision. Order: manual hold → someone home → preheat → on the way home → away temperature (never above the schedule). The HeatMeisters run by themselves; the app only shows them.
 - `controller.js`: every refresh reads the states, decides and logs a line in the activity log when the advice changes.
 - `control.js`: when to send (only on a real change, 2 minutes apart, daily limit) and how a change by hand is noticed (the thermostat shows something else than the app set, after 3 minutes).
@@ -25,7 +25,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 ### The owner's house
 
 - tado° V3+ thermostat, one zone. In Home Assistant twice: through HomeKit (local, `climate.tado_smart_thermostat_…`) and through Tado CE (tado cloud, `climate.verwarming`). No Auto-Assist subscription, so the tado cloud allows only **100 requests per day**: control goes through the **HomeKit** entity.
-- Three HeatMeisters (SDR Engineering), in Home Assistant through MQTT. Entity ids start with `heatbooster_<room>_` (old product name), names with "HeatMeister - <room>". Names: Woonkamer-garage (controls the room temperature itself, `switch.…_ambientcontrol_enable` on), Woonkamer-voor, Woonkamer-gang. Node-RED now publishes the tado room temperature (`sensor.tado_smart_thermostat_ru3010610432_current_temperature`) to `Woonkamer-garage/temp-ambient-ext`, `Woonkamer-voor/temp-ambient-ext` and `woonkamer-gang/temp-ambient-ext` (lower case!) on the MQTT broker in Home Assistant, **triggered by a change of the thermostat setpoint**.
+- Three HeatMeisters (SDR Engineering), in Home Assistant through MQTT. Entity ids start with `heatbooster_<room>_` (old product name), names with "HeatMeister - <room>". Names: Woonkamer-garage (controls the room temperature itself, `switch.…_ambientcontrol_enable` on), Woonkamer-voor, Woonkamer-gang. Node-RED now publishes the tado **setpoint** (the owner confirmed: setpoint, not the measured room temperature) to `Woonkamer-garage/temp-ambient-ext`, `Woonkamer-voor/temp-ambient-ext` and `woonkamer-gang/temp-ambient-ext` (lower case!) on the MQTT broker in Home Assistant, **triggered by a change of the thermostat setpoint**.
 - Persons: Peter, Yvonne and Cheyenne (Companion App). The owner uses Home Assistant zones (GPS); Bluetooth trackers should not count by default for him.
 - His current heating control runs in Node-RED and stays on until he says the app takes over.
 - tado's own schedule is not used: all planning runs in Node-RED. So a target the app sets is not undone by tado.

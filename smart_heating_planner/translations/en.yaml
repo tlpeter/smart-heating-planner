@@ -3,8 +3,8 @@ configuration:
     name: Allow control
     description: "Off: the app only shows what it would do. On: it sets the target temperature of the thermostat chosen in the app. Turn your other heating control (for example Node-RED) off first."
   allow_heatmeister_temperature:
-    name: Send room temperature to HeatMeisters
-    description: "On: the app sends the room temperature (the thermostat's, or a sensor chosen in the app) to the HeatMeisters over MQTT, topic <Name>/temp-ambient-ext. Needs the MQTT integration in Home Assistant."
+    name: Send temperature to HeatMeisters
+    description: "On: the app sends the thermostat's setpoint (or a room temperature, chosen in the app) to the HeatMeisters over MQTT, topic <Name>/temp-ambient-ext. Needs the MQTT integration in Home Assistant."
   max_writes_per_day:
     name: Most changes per 24 hours
     description: The app never sets the thermostat more often than this. Keep it low (about 20) for a tado cloud thermostat; tado allows 100 cloud requests per day without a subscription.

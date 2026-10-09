@@ -154,9 +154,10 @@ function renderStatus(s) {
   const v = (x, unit = ' °C') => (x == null ? '–' : `${Number(x).toFixed(1)}${unit}`);
   const rt = s.roomTemperature || {};
   const ago = (ms) => { const m = Math.round((s.at - ms) / 60000); return m < 1 ? 'just now' : `${m} min ago`; };
+  const what = rt.send === 'room' ? `room temperature (${rt.source === 'thermostat' ? 'from the thermostat' : esc(rt.source)})` : 'thermostat setpoint';
   const rtLine = !hms.length ? '' : rt.allowed
-    ? `<p class="muted small">Room temperature for the HeatMeisters: <b>${v(rt.value)}</b> (${rt.source === 'thermostat' ? 'from the thermostat' : esc(rt.source)})${rt.last && rt.last.error ? ` · <span style="color:rgb(var(--rgb-red))">sending failed: ${esc(rt.last.error)}</span>` : ''}</p>`
-    : `<p class="muted small">Room temperature for the HeatMeisters: <b>${v(rt.value)}</b> · not sent by the app (option "Send room temperature to HeatMeisters" is off).</p>`;
+    ? `<p class="muted small">For the HeatMeisters: <b>${v(rt.value)}</b> · ${what}${rt.last && rt.last.error ? ` · <span style="color:rgb(var(--rgb-red))">sending failed: ${esc(rt.last.error)}</span>` : ''}</p>`
+    : `<p class="muted small">For the HeatMeisters: <b>${v(rt.value)}</b> · ${what} · not sent by the app (option "Send temperature to HeatMeisters" is off).</p>`;
   $('hm-list').innerHTML = hms.length
     ? `<p class="muted small">Thermostat asks for heat: <b>${s.demand ? 'yes' : 'no'}</b></p>` + rtLine + hms.map((h) => `
       <div class="hm">
@@ -345,14 +346,17 @@ async function loadSettingsPage() {
   $('s-room-source').innerHTML = `<option value="">The thermostat's room temperature</option>` + entities.temperatures.map((t) =>
     `<option value="${esc(t.entity_id)}" ${t.entity_id === s.room_temperature_source ? 'selected' : ''}>${esc(t.name)} (${esc(t.state)} °C)</option>`).join('');
   $('s-room-interval').value = s.room_temperature_interval;
+  $('s-hm-send').value = s.heatmeister_send || 'setpoint';
+  $('s-room-source-label').classList.toggle('hidden', $('s-hm-send').value !== 'room');
   $('s-room-note').innerHTML = (status && status.roomTemperature && status.roomTemperature.allowed)
-    ? 'The app sends this temperature to each ticked HeatMeister over MQTT (Home Assistant\'s MQTT integration): right away when the thermostat setpoint changes, when the temperature changes by 0.1 °C, and at least every few minutes.'
-    : 'Sending is <b>off</b>. Turn on "Send room temperature to HeatMeisters" in the app\'s Configuration tab. It does the same as the Node-RED flow; both sending at the same time does no harm.';
+    ? 'The app sends this temperature to each ticked HeatMeister over MQTT (Home Assistant\'s MQTT integration): right away when the thermostat setpoint changes, when the value changes by 0.1 °C, and at least every few minutes.'
+    : 'Sending is <b>off</b>. Turn on "Send temperature to HeatMeisters" in the app\'s Configuration tab. With "setpoint" it does the same as the Node-RED flow; both sending at the same time does no harm.';
   $('s-needs-presence').checked = s.schedule_needs_presence !== false;
   $('s-hold').value = s.hold_default_minutes;
   $('s-manual').value = s.manual_change_until;
 }
 $('s-thermostat').addEventListener('change', thermostatNote);
+$('s-hm-send').addEventListener('change', () => $('s-room-source-label').classList.toggle('hidden', $('s-hm-send').value !== 'room'));
 
 $('settings-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -367,6 +371,7 @@ $('settings-form').addEventListener('submit', async (e) => {
       .filter((tr) => tr.querySelector('input[type=checkbox]').checked)
       .map((tr) => ({ prefix: tr.dataset.prefix, name: tr.dataset.name, topic: tr.querySelector('input[type=text]').value.trim() })),
     schedule_needs_presence: $('s-needs-presence').checked,
+    heatmeister_send: $('s-hm-send').value,
     room_temperature_source: $('s-room-source').value,
     room_temperature_interval: Number($('s-room-interval').value),
     hold_default_minutes: Number($('s-hold').value),

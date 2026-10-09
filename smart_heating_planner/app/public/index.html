@@ -168,16 +168,22 @@
 
         <div class="card">
           <h2><span class="shape sm c-purple" data-icon="fan"></span>HeatMeisters</h2>
-          <p class="muted small">Found automatically (MQTT, SDR Engineering). Tick the ones to show on the Home page. They run by themselves; the app can give them the room temperature to react to.</p>
+          <p class="muted small">Found automatically (MQTT, SDR Engineering). Tick the ones to show on the Home page. They run by themselves; the app can send them a temperature over MQTT.</p>
           <div class="table-wrap">
             <table class="hms">
-              <thead><tr><th>Show</th><th>HeatMeister</th><th>MQTT topic for the room temperature</th></tr></thead>
+              <thead><tr><th>Show</th><th>HeatMeister</th><th>MQTT topic</th></tr></thead>
               <tbody id="s-hms"></tbody>
             </table>
           </div>
-          <h3 class="sub">Room temperature for the HeatMeisters</h3>
+          <h3 class="sub">Temperature for the HeatMeisters</h3>
           <div class="grid2">
-            <label>Take the room temperature from
+            <label>Send to the HeatMeisters
+              <select id="s-hm-send">
+                <option value="setpoint">The thermostat's setpoint (target temperature)</option>
+                <option value="room">A room temperature</option>
+              </select>
+            </label>
+            <label id="s-room-source-label">Take the room temperature from
               <select id="s-room-source"></select>
             </label>
             <label>Send it at least every (minutes)

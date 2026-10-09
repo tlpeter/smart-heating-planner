@@ -79,6 +79,7 @@ test('wrong settings are refused with a clear message', async () => {
     { heatmeisters: [{ prefix: 'heatbooster_woonkamer_garage', name: 'x', topic: 'Woonkamer-garage/#' }] },
     { room_temperature_source: 'climate.verwarming' },
     { room_temperature_interval: 0 },
+    { heatmeister_send: 'both' },
   ];
   for (const body of cases) {
     const r = await save(body);
@@ -261,10 +262,11 @@ test('large or broken requests are refused', async () => {
   assert.equal((await req('GET', '/api/nope')).status, 404);
 });
 
-test('room temperature for the HeatMeisters is shown, but not sent while its option is off', async () => {
+test('the temperature for the HeatMeisters (setpoint) is shown, but not sent while its option is off', async () => {
   const s = await refreshed();
   assert.equal(s.roomTemperature.allowed, false);
-  assert.equal(s.roomTemperature.value, 19.4);
+  assert.equal(s.roomTemperature.send, 'setpoint');
+  assert.equal(s.roomTemperature.value, s.thermostat.target);
   assert.deepEqual(fakeHa.world.mqtt, {});
 });
 

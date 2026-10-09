@@ -21,7 +21,7 @@ const VERSION = require(path.join(ROOT, 'smart_heating_planner', 'app', 'package
 const FILES = [
   ['settings.test.js', 'Settings and situations', 'The real app ("Allow control" off) against a fake Home Assistant (tado over HomeKit and Tado CE, Peter, Yvonne and Cheyenne with GPS, router and Bluetooth trackers, three HeatMeisters over MQTT). Everything goes through the same API as the page.'],
   ['control-app.test.js', 'Control (Allow control on)', 'The real app with "Allow control" on: sets the HomeKit thermostat only when the advice changes, keeps a change made by hand, waits between writes, respects the daily limit and survives a failing thermostat.'],
-  ['heatmeister-app.test.js', 'HeatMeister room temperature (MQTT on)', 'The real app with "Send room temperature to HeatMeisters" on: like the Node-RED flow, the room temperature goes to "<Name>/temp-ambient-ext" for each chosen HeatMeister, on a change and every few minutes; only mqtt.publish to those topics.'],
+  ['heatmeister-app.test.js', 'HeatMeister temperature (MQTT on)', 'The real app with "Send temperature to HeatMeisters" on: like the Node-RED flow, the thermostat setpoint goes to "<Name>/temp-ambient-ext" for each chosen HeatMeister when it changes (or a room temperature, if chosen); only mqtt.publish to those topics.'],
   ['schedule.test.js', 'Week schedule', 'Which switch point is valid when, across midnight, the week and daylight saving time; checks on the schedule.'],
   ['presence.test.js', 'Presence', 'Who is home per person and per kind of tracker (GPS, router, Bluetooth), unknown locations, the away delay, and "coming home" from the GPS position.'],
   ['decide.test.js', 'Decision', 'Which temperature and why.'],

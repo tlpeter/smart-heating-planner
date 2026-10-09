@@ -29,7 +29,10 @@ function defaults() {
     hold_default_minutes: 120,
     manual_change_until: 'next',
     heatmeisters: [], // [{ prefix, name, topic }]
-    // Room temperature for the HeatMeisters (MQTT): '' = the thermostat's.
+    // What the HeatMeisters get over MQTT: the thermostat's setpoint (like the
+    // owner's Node-RED flow) or a room temperature.
+    heatmeister_send: 'setpoint',
+    // For 'room': '' = the thermostat's room temperature, or a sensor.
     room_temperature_source: '',
     room_temperature_interval: 5,
     schedule: schedule.defaultSchedule(),
@@ -108,8 +111,12 @@ function validate(input) {
     }
   }
   if ('schedule_needs_presence' in input) v.schedule_needs_presence = input.schedule_needs_presence !== false;
+  if ('heatmeister_send' in input) {
+    if (['setpoint', 'room'].includes(input.heatmeister_send)) v.heatmeister_send = input.heatmeister_send;
+    else errors.push('Send to the HeatMeisters: "setpoint" or "room"');
+  }
   if ('room_temperature_source' in input) v.room_temperature_source = entityOrEmpty(input.room_temperature_source, ['sensor'], 'Room temperature source', errors);
-  if ('room_temperature_interval' in input) v.room_temperature_interval = Math.round(num(input.room_temperature_interval, 1, 60, 'Send room temperature every', errors, old.room_temperature_interval));
+  if ('room_temperature_interval' in input) v.room_temperature_interval = Math.round(num(input.room_temperature_interval, 1, 60, 'Send the temperature every', errors, old.room_temperature_interval));
   if ('away_temp' in input) v.away_temp = schedule.roundTemp(num(input.away_temp, 5, 22, 'Away temperature', errors, old.away_temp));
   if ('away_delay_minutes' in input) v.away_delay_minutes = Math.round(num(input.away_delay_minutes, 0, 120, 'Away delay', errors, old.away_delay_minutes));
   if ('hold_default_minutes' in input) v.hold_default_minutes = Math.round(num(input.hold_default_minutes, 15, 1440, 'Default hold', errors, old.hold_default_minutes));

@@ -14,7 +14,7 @@ Examples of what to report:
 How the app protects you:
 
 - Only the Home Assistant ingress proxy may talk to the app; other devices on the network are refused.
-- The app has a fixed list of read-only commands. The two writes have their own paths: `climate.set_temperature` checks "Allow control" and the chosen thermostat; `mqtt.publish` checks "Send room temperature to HeatMeisters", the chosen topics (no wildcards) and that the message is a temperature. Anything else is refused in code and tested on every push.
+- The app has a fixed list of read-only commands. The two writes have their own paths: `climate.set_temperature` checks "Allow control" and the chosen thermostat; `mqtt.publish` checks "Send temperature to HeatMeisters", the chosen topics (no wildcards) and that the message is a temperature. Anything else is refused in code and tested on every push.
 - It writes at most a set number of times per 24 hours, so it cannot flood your thermostat or the tado cloud.
 - Requests to the app are limited in size and checked before anything is saved.
 - The diagnostics file leaves out names of persons, places and the token.

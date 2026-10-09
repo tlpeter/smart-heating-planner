@@ -40,9 +40,10 @@ function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-// The room temperature for the HeatMeisters: the chosen sensor, or the
-// thermostat's own room temperature.
+// The temperature for the HeatMeisters: the thermostat's setpoint (default),
+// or a room temperature (the chosen sensor, or the thermostat's own).
 function roomTemperature(states, s, thermostat) {
+  if (s.heatmeister_send !== 'room') return thermostat && thermostat.available ? thermostat.target : null;
   if (s.room_temperature_source) {
     const st = (states || []).find((x) => x.entity_id === s.room_temperature_source);
     return st ? num(st.state) : null;
@@ -50,7 +51,7 @@ function roomTemperature(states, s, thermostat) {
   return thermostat && thermostat.available ? thermostat.current : null;
 }
 
-// With "Send room temperature to HeatMeisters" on: send it to each topic
+// With "Send temperature to HeatMeisters" on: send it to each topic
 // when it changed, and every few minutes.
 async function sendRoomTemperature(st, now) {
   const s = settings.get();
@@ -162,7 +163,8 @@ function evaluate(states, now = Date.now()) {
     roomTemperature: {
       allowed: options.allow_heatmeister_temperature,
       value: roomTemp,
-      source: s.room_temperature_source || 'thermostat',
+      send: s.heatmeister_send === 'room' ? 'room' : 'setpoint',
+      source: s.heatmeister_send === 'room' ? (s.room_temperature_source || 'thermostat') : 'setpoint',
       last: lastMqtt,
     },
     control: {

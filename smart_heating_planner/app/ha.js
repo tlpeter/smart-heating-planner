@@ -8,8 +8,8 @@
 // own function and behind its own option in the Configuration tab:
 // - the target temperature of the chosen thermostat (climate.set_temperature,
 //   setTemperature(), "Allow control");
-// - the room temperature for the HeatMeisters (mqtt.publish to the topics set
-//   in Settings, publishRoomTemperature(), "Send room temperature to
+// - the temperature for the HeatMeisters (mqtt.publish to the topics set
+//   in Settings, publishRoomTemperature(), "Send temperature to
 //   HeatMeisters"). Anything else is refused.
 
 const WebSocket = require('ws');
@@ -117,13 +117,13 @@ async function setTemperature(entityId, temperature, chosen) {
 // A safe MQTT topic: letters, digits, - _ . / and spaces; no wildcards.
 const TOPIC = /^[A-Za-z0-9_\-./ ]{1,100}$/;
 
-// Send the room temperature to one HeatMeister over MQTT (through Home
-// Assistant's MQTT integration). Refused unless "Send room temperature to
+// Send the temperature (setpoint or room) to one HeatMeister over MQTT (through Home
+// Assistant's MQTT integration). Refused unless "Send temperature to
 // HeatMeisters" is on, and only to a topic chosen in Settings.
 async function publishRoomTemperature(topic, temperature, allowedTopics) {
   if (options.allow_heatmeister_temperature !== true) {
-    warn('Refused mqtt.publish - "Send room temperature to HeatMeisters" is off');
-    throw new Error('Sending the room temperature to the HeatMeisters is off in the Configuration tab');
+    warn('Refused mqtt.publish - "Send temperature to HeatMeisters" is off');
+    throw new Error('Sending the temperature to the HeatMeisters is off in the Configuration tab');
   }
   if (!TOPIC.test(String(topic)) || /[#+]/.test(topic) || !(allowedTopics || []).includes(topic)) {
     warn('Refused mqtt.publish to', topic, '- not a topic chosen in Settings');
