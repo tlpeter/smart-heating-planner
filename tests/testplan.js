@@ -19,13 +19,14 @@ const VERSION = require(path.join(ROOT, 'smart_heating_planner', 'app', 'package
 
 // The test files, in the order of the plan, with what they cover.
 const FILES = [
-  ['settings.test.js', 'Settings and situations', 'The real app ("Allow control" off) against a fake Home Assistant (tado over HomeKit and Tado CE, Peter, Yvonne and Cheyenne, Proximity, three Heatmeisters over MQTT). Everything goes through the same API as the page.'],
+  ['settings.test.js', 'Settings and situations', 'The real app ("Allow control" off) against a fake Home Assistant (tado over HomeKit and Tado CE, Peter, Yvonne and Cheyenne with GPS, router and Bluetooth trackers, three HeatMeisters over MQTT). Everything goes through the same API as the page.'],
   ['control-app.test.js', 'Control (Allow control on)', 'The real app with "Allow control" on: sets the HomeKit thermostat only when the advice changes, keeps a change made by hand, waits between writes, respects the daily limit and survives a failing thermostat.'],
   ['schedule.test.js', 'Week schedule', 'Which switch point is valid when, across midnight, the week and daylight saving time; checks on the schedule.'],
-  ['presence.test.js', 'Presence', 'Who is home, unknown locations, the away delay and "on the way home".'],
-  ['decide.test.js', 'Decision', 'Which temperature and why; the Heatmeister rule with its gap.'],
+  ['presence.test.js', 'Presence', 'Who is home per person and per kind of tracker (GPS, router, Bluetooth), unknown locations, the away delay, and "coming home" from the GPS position.'],
+  ['decide.test.js', 'Decision', 'Which temperature and why.'],
   ['control.test.js', 'When to send', 'The rules for writing to the thermostat and for noticing a change by hand.'],
-  ['entities.test.js', 'Finding entities', 'HomeKit thermostat first, tado cloud marked, Heatmeisters recognised.'],
+  ['heatmeister.test.js', 'HeatMeisters', 'Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_…) and reading what they do.'],
+  ['entities.test.js', 'Finding entities', 'HomeKit thermostat first, tado cloud marked, persons with their trackers, HeatMeisters offered.'],
   ['persistence.test.js', 'Saving', 'Settings, hold and activity survive a restart; files are written safely.'],
 ];
 

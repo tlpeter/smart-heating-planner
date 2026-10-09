@@ -8,35 +8,39 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 
 | Test | Passed |
 |---|---|
-| Settings and situations | 17 of 17 ✓ |
+| Settings and situations | 20 of 20 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
 | Week schedule | 10 of 10 ✓ |
-| Presence | 8 of 8 ✓ |
-| Decision | 13 of 13 ✓ |
+| Presence | 13 of 13 ✓ |
+| Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
-| Finding entities | 5 of 5 ✓ |
-| Saving | 4 of 4 ✓ |
+| HeatMeisters | 6 of 6 ✓ |
+| Finding entities | 3 of 3 ✓ |
+| Saving | 5 of 5 ✓ |
 
-Version: 0.2.0.
+Version: 0.3.0.
 
 ## Settings and situations
 
-The real app ("Allow control" off) against a fake Home Assistant (tado over HomeKit and Tado CE, Peter, Yvonne and Cheyenne, Proximity, three Heatmeisters over MQTT). Everything goes through the same API as the page.
+The real app ("Allow control" off) against a fake Home Assistant (tado over HomeKit and Tado CE, Peter, Yvonne and Cheyenne with GPS, router and Bluetooth trackers, three HeatMeisters over MQTT). Everything goes through the same API as the page.
 
 `node tests/settings.test.js`
 
 - ✓ fresh install: connected, nothing chosen, setup hint data
-- ✓ entities: HomeKit thermostat first, three persons, three Heatmeisters
+- ✓ entities: HomeKit thermostat first, three persons with trackers, three HeatMeisters
 - ✓ settings are saved
 - ✓ wrong settings are refused with a clear message
 - ✓ someone home: the schedule; the thermostat would change
 - ✓ everybody leaves: away temperature
 - ✓ away delay: first wait, then lower
-- ✓ on the way home within 10 km: the schedule
+- ✓ coming home (GPS, within 10 km and getting closer): the schedule
+- ✓ coming home off for a person: their approach is ignored
+- ✓ Bluetooth does not count: a watch at home does not make Peter home
+- ✓ a person who does not count: home, but the house still counts as empty
 - ✓ preheat switch point: heat even when nobody is home
 - ✓ location unknown counts as home
 - ✓ manual hold: wins, then ends
-- ✓ Heatmeisters: run on heat demand and while the radiator is warm
+- ✓ HeatMeisters: their own state is shown, nothing is sent to them
 - ✓ thermostat unavailable: no change advised, the page still works
 - ✓ activity: one line per change, never "sent"
 - ✓ diagnostics: download without names of persons
@@ -79,22 +83,27 @@ Which switch point is valid when, across midnight, the week and daylight saving 
 
 ## Presence
 
-Who is home, unknown locations, the away delay and "on the way home".
+Who is home per person and per kind of tracker (GPS, router, Bluetooth), unknown locations, the away delay, and "coming home" from the GPS position.
 
 `node tests/presence.test.js`
 
 - ✓ someone in the Home zone means home
 - ✓ nobody home
-- ✓ unknown location counts as home (better warm than cold)
-- ✓ a person that does not exist counts as unknown
+- ✓ Bluetooth off: a Bluetooth tracker at home no longer makes Peter home
+- ✓ only GPS (zones): the router tracker does not count
+- ✓ a person who does not count is shown but ignored
+- ✓ unknown location (no counted tracker knows) counts as home
+- ✓ a person without trackers uses the person state; a missing person is unknown
+- ✓ old settings with plain person ids still work
+- ✓ distance between two points
+- ✓ coming home: close and getting closer
+- ✓ coming home: an old position does not count, nor GPS noise
+- ✓ coming home: once home, the history is cleared
 - ✓ away delay: wait before treating the house as empty
-- ✓ on the way home: close and travelling towards home
-- ✓ on the way home without a direction sensor: being close is enough
-- ✓ no distance sensor chosen: never approaching
 
 ## Decision
 
-Which temperature and why; the Heatmeister rule with its gap.
+Which temperature and why.
 
 `node tests/decide.test.js`
 
@@ -108,9 +117,6 @@ Which temperature and why; the Heatmeister rule with its gap.
 - ✓ no schedule: away temperature
 - ✓ no change advised when the thermostat already matches, or is unavailable
 - ✓ heat demand comes from hvac_action
-- ✓ Heatmeister "both": runs on demand, and after it while the radiator is warm
-- ✓ Heatmeister gap: between "off" and "on" it keeps what it was
-- ✓ Heatmeister "demand": only while the thermostat heats
 
 ## When to send
 
@@ -127,17 +133,28 @@ The rules for writing to the thermostat and for noticing a change by hand.
 - ✓ no change by hand right after a write (the thermostat may still be busy)
 - ✓ no change by hand without an earlier write, or when unavailable
 
+## HeatMeisters
+
+Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_…) and reading what they do.
+
+`node tests/heatmeister.test.js`
+
+- ✓ the three HeatMeisters are found, with readable names
+- ✓ all known parts are recognised, and similar names are not mixed up
+- ✓ reading one: temperatures, fan, room control
+- ✓ running while heating or in overrun
+- ✓ unknown prefix or unavailable device
+- ✓ newer "heatmeister_" names work too
+
 ## Finding entities
 
-HomeKit thermostat first, tado cloud marked, Heatmeisters recognised.
+HomeKit thermostat first, tado cloud marked, persons with their trackers, HeatMeisters offered.
 
 `node tests/entities.test.js`
 
 - ✓ thermostats: HomeKit (local) first, tado cloud marked
-- ✓ persons and proximity sensors are found
-- ✓ Heatmeister entities are recognised and listed first
-- ✓ recognised by name alone, without the device registry
-- ✓ old "heatbooster" entity ids with a "HeatMeister - …" name are recognised
+- ✓ persons with their trackers and tracker kinds
+- ✓ HeatMeisters are offered
 
 ## Saving
 
@@ -148,4 +165,5 @@ Settings, hold and activity survive a restart; files are written safely.
 - ✓ settings, hold and activity survive a restart
 - ✓ a refused save changes nothing
 - ✓ an ended hold is not returned, and clear removes it
+- ✓ settings from 0.2 are taken over (persons, Proximity distance, old Heatmeisters)
 - ✓ no temporary files are left behind

@@ -64,12 +64,11 @@ function readBody(req) {
 }
 
 async function loadEntities() {
-  const [states, entities, devices] = await Promise.all([
+  const [states, entities] = await Promise.all([
     ha.call({ type: 'get_states' }),
     ha.call({ type: 'config/entity_registry/list' }).catch(() => []),
-    ha.call({ type: 'config/device_registry/list' }).catch(() => []),
   ]);
-  return detect(states, entities, devices);
+  return detect(states, entities);
 }
 
 async function api(req, res, url) {
@@ -119,7 +118,7 @@ async function api(req, res, url) {
       created: new Date().toISOString(),
       options,
       settings: diagnostics.redact(settings.get()),
-      status: diagnostics.redact(controller.getStatus()),
+      status: diagnostics.redact(diagnostics.summarisePresence(controller.getStatus())),
       activity: diagnostics.redact(activity.recent(50)),
       log: ha.recentLog().map(diagnostics.redactLine),
     };

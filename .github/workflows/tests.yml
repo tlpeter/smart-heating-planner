@@ -46,7 +46,7 @@ jobs:
           --test-coverage-lines=70
           --test-coverage-functions=70
           --test-coverage-branches=60
-          tests/schedule.test.js tests/presence.test.js tests/decide.test.js tests/control.test.js tests/entities.test.js tests/persistence.test.js
+          tests/schedule.test.js tests/presence.test.js tests/decide.test.js tests/control.test.js tests/heatmeister.test.js tests/entities.test.js tests/persistence.test.js
 
   tests:
     name: Tests (${{ matrix.file }})

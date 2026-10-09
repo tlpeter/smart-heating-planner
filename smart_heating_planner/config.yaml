@@ -1,7 +1,7 @@
 name: Smart Heating Planner (dev)
-version: "0.2.0-dev"
+version: "0.3.0-dev"
 slug: smart_heating_planner
-description: "TEST VERSION: heats on a schedule and on who is home (tado + Heatmeister)."
+description: "TEST VERSION: heats on a schedule and on who is home (tado + HeatMeister)."
 url: https://github.com/tlpeter/smart-heating-planner
 arch:
   - amd64

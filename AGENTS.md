@@ -15,8 +15,9 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 ### How it works (short)
 
 - `schedule.js`: week schedule; a switch point (time, temperature, preheat) is valid until the next one.
-- `presence.js`: who is home (person entities), the away delay, "on the way home" (Proximity integration).
-- `decide.js`: the decision. Order: manual hold → someone home → preheat → on the way home → away temperature (never above the schedule). Heatmeister rule: heat demand (`hvac_action: heating`) and/or radiator inlet temperature, with a gap.
+- `presence.js`: who is home per person (only the kinds of tracker that count: GPS, router, Bluetooth), the away delay, and "coming home" (distance from the GPS tracker to `zone.home`, getting closer).
+- `heatmeister.js`: finds HeatMeisters by entity names (`<domain>.heatbooster_<room>_<part>`) and reads them. Never controls them (yet).
+- `decide.js`: the decision. Order: manual hold → someone home → preheat → on the way home → away temperature (never above the schedule). The HeatMeisters run by themselves; the app only shows them.
 - `controller.js`: every refresh reads the states, decides and logs a line in the activity log when the advice changes.
 - `control.js`: when to send (only on a real change, 2 minutes apart, daily limit) and how a change by hand is noticed (the thermostat shows something else than the app set, after 3 minutes).
 - `ha.js`: the WebSocket client. It reads (`READ_ONLY_COMMANDS`); the one write is `setTemperature()` (`climate.set_temperature` on the chosen thermostat), only with the `allow_control` option on.
@@ -24,8 +25,8 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 ### The owner's house
 
 - tado° V3+ thermostat, one zone. In Home Assistant twice: through HomeKit (local, `climate.tado_smart_thermostat_…`) and through Tado CE (tado cloud, `climate.verwarming`). No Auto-Assist subscription, so the tado cloud allows only **100 requests per day**: control goes through the **HomeKit** entity.
-- Three Heatmeisters (SDR Engineering), in Home Assistant through MQTT.
-- Persons: Peter, Yvonne and Cheyenne (Companion App).
+- Three HeatMeisters (SDR Engineering), in Home Assistant through MQTT. Entity ids start with `heatbooster_<room>_` (old product name), names with "HeatMeister - <room>". Woonkamer-garage controls the room temperature itself (`switch.…_ambientcontrol_enable` on).
+- Persons: Peter, Yvonne and Cheyenne (Companion App). The owner uses Home Assistant zones (GPS); Bluetooth trackers should not count by default for him.
 - His current heating control runs in Node-RED and stays on until he says the app takes over.
 - tado's own schedule is not used: all planning runs in Node-RED. So a target the app sets is not undone by tado.
 
@@ -38,6 +39,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 - **Never use the tado cloud for frequent writes.** Write only when the target really changes, and prefer the HomeKit entity.
 - **New behaviour is an option** when not everyone has it (Heatmeisters, Proximity, more zones, …); off by default unless the owner says otherwise.
 - **Every version gets a changelog entry**, short and in plain words.
+- **Keep the manual and the tests up to date in the same change, without being asked**: `README.md`, `smart_heating_planner/DOCS.md`, `CHANGELOG.md`, and a test for every new or changed behaviour (update `tests/fake-ha.js` when the owner's house changes).
 
 ## Branches and versions
 

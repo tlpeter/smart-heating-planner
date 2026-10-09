@@ -8,6 +8,7 @@ const path = require('path');
 const { readJson, writeJsonAtomic } = require('./jsonstore');
 const { DATA_DIR } = require('./options');
 const schedule = require('./schedule');
+const { normalisePersons } = require('./presence');
 
 const FILE = path.join(DATA_DIR, 'settings.json');
 const MAX_HEATMEISTERS = 6;
@@ -19,11 +20,12 @@ function defaults() {
     persons: [],
     away_temp: 16,
     away_delay_minutes: 10,
-    proximity: { distance_entity: '', direction_entity: '', distance_km: 10 },
+    // Which kinds of tracker count for "home" (person entities).
+    tracker_types: { gps: true, router: true, bluetooth: true },
+    coming_home_km: 10,
     hold_default_minutes: 120,
     manual_change_until: 'next',
-    heatmeisters: [],
-    heatmeister_rule: { mode: 'both', inlet_on: 35, inlet_off: 30 },
+    heatmeisters: [], // [{ prefix, name }]
     schedule: schedule.defaultSchedule(),
   };
 }
@@ -34,12 +36,18 @@ function load() {
   const saved = readJson(FILE, null);
   const base = defaults();
   if (!saved || typeof saved !== 'object') return base;
-  return {
+  const out = {
     ...base,
     ...saved,
-    proximity: { ...base.proximity, ...(saved.proximity || {}) },
-    heatmeister_rule: { ...base.heatmeister_rule, ...(saved.heatmeister_rule || {}) },
+    tracker_types: { ...base.tracker_types, ...(saved.tracker_types || {}) },
+    persons: normalisePersons(saved.persons),
   };
+  // Older versions: a Proximity sensor distance, and Heatmeisters by entity.
+  if (saved.proximity && saved.coming_home_km === undefined && Number(saved.proximity.distance_km) > 0) out.coming_home_km = Number(saved.proximity.distance_km);
+  delete out.proximity;
+  delete out.heatmeister_rule;
+  out.heatmeisters = (out.heatmeisters || []).filter((h) => h && h.prefix);
+  return out;
 }
 
 function get() {
@@ -81,7 +89,14 @@ function validate(input) {
   if ('persons' in input) {
     if (!Array.isArray(input.persons)) errors.push('Persons must be a list');
     else {
-      const list = [...new Set(input.persons.map((p) => entityOrEmpty(p, ['person'], 'Person', errors)).filter(Boolean))];
+      const seen = new Set();
+      const list = [];
+      for (const p of normalisePersons(input.persons)) {
+        const id = entityOrEmpty(p.entity_id, ['person'], 'Person', errors);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        list.push({ entity_id: id, counts: p.counts, coming_home: p.coming_home });
+      }
       if (list.length > MAX_PERSONS) errors.push(`At most ${MAX_PERSONS} persons`);
       v.persons = list.slice(0, MAX_PERSONS);
     }
@@ -93,32 +108,26 @@ function validate(input) {
     if (['next', 'minutes'].includes(input.manual_change_until)) v.manual_change_until = input.manual_change_until;
     else errors.push('A change on the thermostat lasts until "next" (switch point) or "minutes"');
   }
-  if ('proximity' in input) {
-    const p = input.proximity || {};
-    v.proximity = {
-      distance_entity: entityOrEmpty(p.distance_entity, ['sensor'], 'Distance sensor', errors),
-      direction_entity: entityOrEmpty(p.direction_entity, ['sensor'], 'Direction sensor', errors),
-      distance_km: num(p.distance_km, 0.5, 200, 'Preheat distance', errors, old.proximity.distance_km),
-    };
+  if ('tracker_types' in input) {
+    const t = input.tracker_types || {};
+    v.tracker_types = { gps: t.gps !== false, router: t.router !== false, bluetooth: t.bluetooth !== false };
+    if (!v.tracker_types.gps && !v.tracker_types.router && !v.tracker_types.bluetooth) errors.push('At least one kind of tracker must count');
   }
+  if ('coming_home_km' in input) v.coming_home_km = num(input.coming_home_km, 0.5, 200, '"Coming home" distance', errors, old.coming_home_km);
   if ('heatmeisters' in input) {
     if (!Array.isArray(input.heatmeisters)) errors.push('Heatmeisters must be a list');
     else {
       if (input.heatmeisters.length > MAX_HEATMEISTERS) errors.push(`At most ${MAX_HEATMEISTERS} Heatmeisters`);
-      v.heatmeisters = input.heatmeisters.slice(0, MAX_HEATMEISTERS).map((h, i) => ({
-        name: String((h && h.name) || `Heatmeister ${i + 1}`).trim().slice(0, 40),
-        control_entity: entityOrEmpty(h && h.control_entity, ['fan', 'switch', 'number', 'select', 'light'], `Heatmeister ${i + 1} control`, errors),
-        inlet_entity: entityOrEmpty(h && h.inlet_entity, ['sensor'], `Heatmeister ${i + 1} radiator temperature`, errors),
-      }));
+      const seen = new Set();
+      v.heatmeisters = [];
+      for (const h of input.heatmeisters.slice(0, MAX_HEATMEISTERS)) {
+        const prefix = String((h && h.prefix) || '');
+        if (!/^(heatbooster|heatmeister|heat_meister)_[a-z0-9_]+$/.test(prefix)) { errors.push(`"${prefix}" is not a HeatMeister`); continue; }
+        if (seen.has(prefix)) continue;
+        seen.add(prefix);
+        v.heatmeisters.push({ prefix, name: String((h && h.name) || prefix).trim().slice(0, 40) });
+      }
     }
-  }
-  if ('heatmeister_rule' in input) {
-    const r = input.heatmeister_rule || {};
-    const mode = ['demand', 'inlet', 'both'].includes(r.mode) ? r.mode : (errors.push('Heatmeister rule must be demand, inlet or both'), old.heatmeister_rule.mode);
-    const on = num(r.inlet_on, 20, 80, 'Radiator "on" temperature', errors, old.heatmeister_rule.inlet_on);
-    const off = num(r.inlet_off, 15, 75, 'Radiator "off" temperature', errors, old.heatmeister_rule.inlet_off);
-    if (off >= on) errors.push('The "off" temperature must be lower than the "on" temperature');
-    v.heatmeister_rule = { mode, inlet_on: on, inlet_off: off };
   }
   if ('schedule' in input) {
     const s = schedule.validate(input.schedule);

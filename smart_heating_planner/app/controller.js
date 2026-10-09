@@ -17,13 +17,15 @@ const presence = require('./presence');
 const holdStore = require('./hold');
 const activity = require('./activity');
 const control = require('./control');
-const { decideTarget, decideHeatmeister, heatDemand } = require('./decide');
+const heatmeister = require('./heatmeister');
+const { decideTarget, heatDemand } = require('./decide');
 const { readJson, writeJsonAtomic } = require('./jsonstore');
 
 const MEMORY_FILE = path.join(DATA_DIR, 'memory.json');
-// lastHomeAt: when someone was last home. hm: last Heatmeister advice per name.
-// lastSent / writes: what the app sent to the thermostat, and when.
-const memory = { lastHomeAt: null, hm: {}, lastKey: null, lastSent: null, writes: [], ...readJson(MEMORY_FILE, {}) };
+// lastHomeAt: when someone was last home. track: last positions per person
+// (on the way home). lastSent / writes: what the app sent to the thermostat.
+const memory = { lastHomeAt: null, track: {}, lastKey: null, lastSent: null, writes: [], ...readJson(MEMORY_FILE, {}) };
+delete memory.hm; // older versions
 // A write from an earlier period with control on says nothing about now.
 if (!options.allow_control) memory.lastSent = null;
 
@@ -61,31 +63,23 @@ function evaluate(states, now = Date.now()) {
   const s = settings.get();
   const tz = ha.state.timeZone || 'UTC';
   const point = schedule.current(s.schedule, now, tz);
-  const who = presence.whoIsHome(states, s.persons);
+  const who = presence.whoIsHome(states, s.persons, s.tracker_types);
   if (who.anyoneHome) memory.lastHomeAt = now;
   const delay = presence.withAwayDelay(who.anyoneHome, memory.lastHomeAt, s.away_delay_minutes, now);
-  const way = presence.onTheWay(states, s.proximity);
+  const way = presence.onTheWay(states, s.persons, who, s, memory, now);
   const thermostat = thermostatFrom(states, s.thermostat);
   const hold = holdStore.get(now);
 
-  // Without persons there is no presence: follow the schedule.
-  const noPersons = !s.persons.length;
+  // Without persons that count there is no presence: follow the schedule.
+  const noPersons = !s.persons.some((p) => p.counts);
   const pres = { effectiveHome: noPersons || delay.effectiveHome, waitingUntil: delay.waitingUntil, approaching: way.approaching };
   const advice = decideTarget({ now, timeZone: tz, point, presence: pres, hold, settings: s, thermostat });
 
   const demand = heatDemand(thermostat);
-  const byId = new Map((states || []).map((x) => [x.entity_id, x]));
-  const heatmeisters = s.heatmeisters.map((h) => {
-    const ctl = h.control_entity ? byId.get(h.control_entity) : null;
-    const inletSt = h.inlet_entity ? byId.get(h.inlet_entity) : null;
-    const inlet = inletSt ? num(inletSt.state) : null;
-    const d = decideHeatmeister({ rule: s.heatmeister_rule, demand, inlet, prevOn: memory.hm[h.name] === true });
-    memory.hm[h.name] = d.on;
-    return { name: h.name, control_entity: h.control_entity, state: ctl ? ctl.state : null, inlet, advice: d.on, reason: d.reason };
-  });
+  const heatmeisters = s.heatmeisters.map((h) => ({ ...heatmeister.read(states, h.prefix), name: h.name }));
 
   // One activity line when the advice changes.
-  const key = JSON.stringify([advice.target, advice.source, heatmeisters.map((h) => h.advice)]);
+  const key = JSON.stringify([advice.target, advice.source]);
   if (key !== memory.lastKey) {
     memory.lastKey = key;
     activity.add({
@@ -94,7 +88,6 @@ function evaluate(states, now = Date.now()) {
       source: advice.source,
       reason: advice.reason,
       thermostat: thermostat.target ?? null,
-      heatmeisters: heatmeisters.map((h) => ({ name: h.name, on: h.advice })),
       sent: false,
     }, now);
   }
@@ -105,10 +98,10 @@ function evaluate(states, now = Date.now()) {
     at: now,
     mode: options.allow_control ? 'control' : 'watch',
     timeZone: tz,
-    setup: { thermostat: !!s.thermostat, persons: s.persons.length, heatmeisters: s.heatmeisters.length },
+    setup: { thermostat: !!s.thermostat, persons: s.persons.filter((p) => p.counts).length, heatmeisters: s.heatmeisters.length },
     advice,
     thermostat,
-    presence: { ...who, ...pres, distanceKm: way.distanceKm, direction: way.direction, noPersons },
+    presence: { ...who, ...pres, onTheWay: way.people, noPersons },
     schedule: point,
     hold,
     demand,

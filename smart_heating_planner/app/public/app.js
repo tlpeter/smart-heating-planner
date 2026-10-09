@@ -96,16 +96,21 @@ function renderStatus(s) {
   } else ch.classList.add('hidden');
 
   const p = s.presence;
-  const chips = [
-    ...p.home.map((x) => `<li class="home">${esc(x.name)} · home</li>`),
-    ...p.away.map((x) => `<li class="away">${esc(x.name)} · ${esc(x.state.replace(/_/g, ' '))}</li>`),
-    ...p.unknown.map((x) => `<li class="unknown">${esc(x.name)} · location unknown</li>`),
-  ];
+  const way = new Map((p.onTheWay || []).map((w) => [w.entity_id, w]));
+  const zone = (z) => (z === 'not_home' ? 'away' : String(z || '').replace(/_/g, ' '));
+  const chips = (p.people || []).map((x) => {
+    if (!x.counts) return `<li>${esc(x.name)} · does not count</li>`;
+    if (x.status === 'home') return `<li class="home">${esc(x.name)} · home</li>`;
+    if (x.status === 'unknown') return `<li class="unknown">${esc(x.name)} · location unknown</li>`;
+    const w = way.get(x.entity_id);
+    const extra = w ? ` · ${w.km.toFixed(1)} km${w.towards ? ', coming home' : ''}` : '';
+    return `<li class="away">${esc(x.name)} · ${esc(zone(x.state))}${esc(extra)}</li>`;
+  });
   $('persons').innerHTML = chips.join('') || '<li>No persons chosen</li>';
   const notes = [];
-  if (p.noPersons) notes.push('No persons chosen: the schedule is followed as if someone is home.');
+  if (p.noPersons) notes.push('No persons count: the schedule is followed as if someone is home.');
   if (p.waitingUntil) notes.push(`Everybody left. Waiting until ${clock(p.waitingUntil)} before lowering.`);
-  if (p.distanceKm != null) notes.push(`Nearest person: ${p.distanceKm.toFixed(1)} km${p.direction ? `, ${p.direction.replace(/_/g, ' ')}` : ''}.`);
+  if (p.approaching) notes.push('Someone is on the way home: heating by the schedule.');
   if (p.unknown.length) notes.push('A person with an unknown location counts as home.');
   $('presence-note').textContent = notes.join(' ');
 
@@ -127,14 +132,22 @@ function renderStatus(s) {
   }
 
   const hms = s.heatmeisters || [];
+  const v = (x, unit = ' °C') => (x == null ? '–' : `${Number(x).toFixed(1)}${unit}`);
   $('hm-list').innerHTML = hms.length
-    ? `<p class="muted small">Heat demand: <b>${s.demand ? 'yes, the thermostat is heating' : 'no'}</b></p>` + hms.map((h) => `
+    ? `<p class="muted small">Thermostat asks for heat: <b>${s.demand ? 'yes' : 'no'}</b></p>` + hms.map((h) => `
       <div class="hm">
-        <div><b>${esc(h.name)}</b><div class="state">${esc(h.reason)}</div></div>
-        <span class="state">now: ${esc(h.state ?? '–')}</span>
-        <span class="pill ${h.advice ? 'change' : 'same'}">${h.advice ? 'would run' : 'would be off'}</span>
+        <div><b>${esc(h.name)}</b>
+          <div class="hmgrid">
+            <span>Radiator in <b>${v(h.inlet)}</b></span>
+            <span>Out <b>${v(h.outlet)}</b></span>
+            <span>Room <b>${v(h.room)}</b>${h.room_control ? ` (target ${v(h.room_target)})` : ''}</span>
+            <span>Fan <b>${h.fan_speed == null ? '–' : `${h.fan_speed} %`}</b>${h.boost ? ' · boost' : ''}${h.manual ? ' · manual' : ''}</span>
+          </div>
+        </div>
+        <span class="state">${esc(h.available ? (h.control_state || '–') : 'unavailable')}</span>
+        <span class="pill ${h.running ? 'change' : 'same'}">${h.running ? 'running' : 'off'}</span>
       </div>`).join('')
-    : '<p class="muted small">No Heatmeisters chosen yet. Add them in <a href="#" data-goto="settings">Settings</a>.</p>';
+    : '<p class="muted small">No HeatMeisters shown. Choose them in <a href="#" data-goto="settings">Settings</a>.</p>';
 }
 
 async function refreshStatus() {
@@ -225,8 +238,7 @@ async function loadActivity() {
         <td class="num">${t1(r.target)}</td>
         <td class="num">${t1(r.thermostat)}</td>
         <td>${esc(SOURCE[r.source] || r.source)} · ${esc(r.reason)}</td>
-        <td>${(r.heatmeisters || []).map((h) => `${esc(h.name)}: ${h.on ? 'on' : 'off'}`).join(', ') || '–'}</td>
-      </tr>`).join('') || '<tr><td colspan="6" class="muted">Nothing yet.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="5" class="muted">Nothing yet.</td></tr>';
   } catch (err) { showError(err.message); }
 }
 
@@ -247,55 +259,60 @@ function thermostatNote() {
   $('s-thermostat-note').textContent = text;
 }
 
-function hmRow(h, i) {
-  return `<div class="hmrow" data-i="${i}">
-    <label>Name<input data-f="name" value="${esc(h.name)}" maxlength="40"></label>
-    <label>Switches it<select data-f="control_entity">${options(entities.controls, h.control_entity, '– choose –')}</select></label>
-    <label>Radiator temperature<select data-f="inlet_entity">${options(entities.temperatures, h.inlet_entity, '– none –')}</select></label>
-    <button type="button" class="btn danger" data-remove-hm aria-label="Remove">✕</button>
-  </div>`;
+// Persons: one row each, with "counts" and "coming home".
+const TYPE_NAME = { gps: 'GPS', router: 'router', bluetooth: 'Bluetooth' };
+function personRows() {
+  const saved = new Map(settings.persons.map((p) => [p.entity_id, p]));
+  const types = { gps: $('s-t-gps').checked, router: $('s-t-router').checked, bluetooth: $('s-t-bluetooth').checked };
+  return entities.persons.map((p) => {
+    const s = saved.get(p.entity_id);
+    const counts = s ? s.counts : false;
+    const coming = s ? s.coming_home : true;
+    const trk = p.trackers.map((t) => `<span class="trk ${types[t.type] ? '' : 'off'} ${t.state === 'home' ? 'home' : ''}" title="${esc(t.entity_id)}">${esc(TYPE_NAME[t.type])}: ${esc(t.state.replace(/_/g, ' '))}</span>`).join('') || '<span class="muted small">no trackers</span>';
+    return `<tr data-id="${esc(p.entity_id)}">
+      <td><b>${esc(p.name)}</b></td>
+      <td><input type="checkbox" data-f="counts" ${counts ? 'checked' : ''} aria-label="Counts for home"></td>
+      <td><input type="checkbox" data-f="coming_home" ${coming ? 'checked' : ''} aria-label="Coming home"></td>
+      <td>${trk}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" class="muted">No person entities found.</td></tr>';
 }
-let hms = [];
-function renderHms() {
-  $('s-hms').innerHTML = hms.map(hmRow).join('') || '<p class="muted small">None yet. ★ marks entities that look like a Heatmeister.</p>';
+function readPersons() {
+  return [...document.querySelectorAll('#s-persons tr[data-id]')].map((tr) => ({
+    entity_id: tr.dataset.id,
+    counts: tr.querySelector('[data-f=counts]').checked,
+    coming_home: tr.querySelector('[data-f=coming_home]').checked,
+  }));
 }
-$('s-hms').addEventListener('input', (e) => {
-  const row = e.target.closest('.hmrow');
-  if (row) hms[Number(row.dataset.i)][e.target.dataset.f] = e.target.value;
-});
-$('s-hms').addEventListener('click', (e) => {
-  if (!e.target.matches('[data-remove-hm]')) return;
-  hms.splice(Number(e.target.closest('.hmrow').dataset.i), 1);
-  renderHms();
-});
-$('s-hm-add').addEventListener('click', () => {
-  if (hms.length >= 6) return;
-  hms.push({ name: `Heatmeister ${hms.length + 1}`, control_entity: '', inlet_entity: '' });
-  renderHms();
-});
+// Changing a tracker kind only redraws which trackers are crossed out.
+for (const id of ['s-t-gps', 's-t-router', 's-t-bluetooth']) {
+  $(id).addEventListener('change', () => {
+    const keep = readPersons();
+    settings = { ...settings, persons: keep };
+    $('s-persons').innerHTML = personRows();
+  });
+}
 
 async function loadSettingsPage() {
   try {
     entities = await api('api/entities');
   } catch (err) {
     showError(`Could not load entities: ${err.message}`);
-    entities = { thermostats: [], persons: [], distance: [], direction: [], controls: [], temperatures: [] };
+    entities = { thermostats: [], persons: [], heatmeisters: [] };
   }
   const s = settings;
   $('s-thermostat').innerHTML = options(entities.thermostats.map((x) => ({ ...x, name: `${x.name}${x.local ? ' – HomeKit, local' : x.cloud ? ' – tado cloud' : ''}` })), s.thermostat, '– choose –');
   thermostatNote();
-  $('s-persons').innerHTML = entities.persons.map((p) =>
-    `<label><input type="checkbox" value="${esc(p.entity_id)}" ${s.persons.includes(p.entity_id) ? 'checked' : ''}> ${esc(p.name)}</label>`).join('') || '<p class="muted small">No person entities found.</p>';
+  $('s-t-gps').checked = s.tracker_types.gps;
+  $('s-t-router').checked = s.tracker_types.router;
+  $('s-t-bluetooth').checked = s.tracker_types.bluetooth;
+  $('s-persons').innerHTML = personRows();
   $('s-away').value = s.away_temp;
   $('s-delay').value = s.away_delay_minutes;
-  $('s-dist').innerHTML = options(entities.distance, s.proximity.distance_entity, '– none –');
-  $('s-dir').innerHTML = options(entities.direction, s.proximity.direction_entity, '– none –');
-  $('s-km').value = s.proximity.distance_km;
-  hms = JSON.parse(JSON.stringify(s.heatmeisters));
-  renderHms();
-  $('s-hm-mode').value = s.heatmeister_rule.mode;
-  $('s-hm-on').value = s.heatmeister_rule.inlet_on;
-  $('s-hm-off').value = s.heatmeister_rule.inlet_off;
+  $('s-km').value = s.coming_home_km;
+  const chosen = new Set(s.heatmeisters.map((h) => h.prefix));
+  $('s-hms').innerHTML = entities.heatmeisters.map((h) =>
+    `<label><input type="checkbox" value="${esc(h.prefix)}" data-name="${esc(h.name)}" ${chosen.has(h.prefix) ? 'checked' : ''}> ${esc(h.name)}</label>`).join('')
+    || '<p class="muted small">No HeatMeisters found (entities like sensor.heatbooster_…_temp_inlet).</p>';
   $('s-hold').value = s.hold_default_minutes;
   $('s-manual').value = s.manual_change_until;
 }
@@ -305,12 +322,12 @@ $('settings-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const body = {
     thermostat: $('s-thermostat').value,
-    persons: [...document.querySelectorAll('#s-persons input:checked')].map((x) => x.value),
+    persons: readPersons(),
+    tracker_types: { gps: $('s-t-gps').checked, router: $('s-t-router').checked, bluetooth: $('s-t-bluetooth').checked },
     away_temp: Number($('s-away').value),
     away_delay_minutes: Number($('s-delay').value),
-    proximity: { distance_entity: $('s-dist').value, direction_entity: $('s-dir').value, distance_km: Number($('s-km').value) },
-    heatmeisters: hms,
-    heatmeister_rule: { mode: $('s-hm-mode').value, inlet_on: Number($('s-hm-on').value), inlet_off: Number($('s-hm-off').value) },
+    coming_home_km: Number($('s-km').value),
+    heatmeisters: [...document.querySelectorAll('#s-hms input:checked')].map((x) => ({ prefix: x.value, name: x.dataset.name })),
     hold_default_minutes: Number($('s-hold').value),
     manual_change_until: $('s-manual').value,
   };

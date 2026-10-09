@@ -23,6 +23,7 @@ function redact(value, key = '') {
     return value
       // person.peter -> person.[removed]: a person entity is a name.
       .replace(/person\.[a-z0-9_]+/g, 'person.[removed]')
+      .replace(/device_tracker\.[a-z0-9_]+/g, 'device_tracker.[removed]')
       .replace(EMAIL, '[email removed]')
       .replace(COORD, '[place removed]');
   }
@@ -33,4 +34,19 @@ function redactLine(line) {
   return redact(String(line)).replace(/"[^"]*"/g, (m) => (/\s/.test(m) ? '"[text removed]"' : m));
 }
 
-module.exports = { redact, redactLine };
+// Who is where says where people are: keep only counts and tracker kinds.
+function summarisePresence(status) {
+  if (!status || !status.presence) return status;
+  const p = status.presence;
+  return {
+    ...status,
+    presence: {
+      home: p.home.length, away: p.away.length, unknown: p.unknown.length,
+      anyoneHome: p.anyoneHome, effectiveHome: p.effectiveHome, waitingUntil: p.waitingUntil,
+      approaching: p.approaching, noPersons: p.noPersons,
+      people: (p.people || []).map((x) => ({ status: x.status, counts: x.counts, trackers: (x.trackers || []).map((t) => ({ type: t.type, used: t.used, home: t.state === 'home' })) })),
+    },
+  };
+}
+
+module.exports = { redact, redactLine, summarisePresence };

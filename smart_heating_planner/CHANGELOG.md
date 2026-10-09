@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0-dev
+
+- Radiator icon and logo for the app store, and a radiator in the page header.
+- **Presence per person**: per person *Counts for home* and *Coming home*, and their trackers with kind and state.
+- **Which trackers count**: GPS (Companion App, zones), router / network and Bluetooth can each be turned on or off.
+- **Coming home** now works without the Proximity integration: the app uses the GPS position and the Home zone, and checks that the person is getting closer. The Proximity sensor settings are gone; the distance is kept.
+- **HeatMeisters** are found automatically by their entity names (also the old `heatbooster_` names). Home shows per HeatMeister: running or off, control state, radiator in/out, room temperature (and room target) and fan speed. The old "would run" advice and its settings are gone: the HeatMeisters run by themselves.
+- Diagnostics leave out tracker ids and zone names.
+
 ## 0.2.0-dev
 
 - **Allow control** (Configuration tab, off by default): the app sets the thermostat's target temperature itself when the advice changes. Only `climate.set_temperature`, only on the thermostat chosen in Settings.

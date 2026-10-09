@@ -150,3 +150,12 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .hmrow { grid-template-columns: minmax(0,1fr); }
   .hmrow [data-remove-hm] { justify-self: start; }
 }
+
+h3.sub { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600; }
+table.persons td { vertical-align: middle; }
+table.persons input[type=checkbox] { width: 18px; height: 18px; }
+.trk { display: inline-block; white-space: nowrap; margin: 2px 4px 2px 0; padding: 1px 8px; border-radius: 99px; font-size: 12px; background: var(--line); }
+.trk.off { opacity: .45; text-decoration: line-through; }
+.trk.home { background: var(--ok-soft); color: var(--ok); }
+.hmgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 4px 16px; font-size: 13px; color: var(--muted); }
+.hmgrid b { color: var(--text); font-variant-numeric: tabular-nums; }

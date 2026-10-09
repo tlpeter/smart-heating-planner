@@ -10,7 +10,7 @@
   <header class="top">
     <div class="brand">
       <span class="logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7 3h2v18H7zm4 0h2v18h-2zm4 0h2v18h-2zM4 8h16v2H4zm0 6h16v2H4z" opacity=".9"/></svg>
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7.95 3L6.53 4.4c.81.81.81 2.09 0 2.9l-.33.33l1.41 1.41l.33-.33C9.5 7.17 9.5 4.6 7.95 3m4 0l-1.42 1.4c.81.81.81 2.09 0 2.9l-.33.33l1.41 1.41l.33-.33C13.5 7.17 13.5 4.6 11.95 3m4.05 0l-1.41 1.4c.8.81.8 2.09 0 2.9l-.33.33l1.41 1.41l.33-.33C17.5 7.17 17.5 4.6 16 3M4 10v8H2v2h20v-2h-2v-8zm2 2h2v6H6zm4 0h2v6h-2zm4 0h2v6h-2z"/></svg>
       </span>
       <span>Smart Heating</span>
       <span id="version" class="muted small"></span>
@@ -23,8 +23,8 @@
     </nav>
   </header>
 
-  <div id="banner" class="banner">Watch only: the app shows what it <em>would</em> do and sends nothing to the thermostat or the Heatmeisters.</div>
-  <div id="banner-control" class="banner control hidden">Control is on: the app sets the thermostat's target temperature. The Heatmeisters are not controlled yet.</div>
+  <div id="banner" class="banner">Watch only: the app shows what it <em>would</em> do and sends nothing to the thermostat.</div>
+  <div id="banner-control" class="banner control hidden">Control is on: the app sets the thermostat's target temperature. The HeatMeisters run by themselves.</div>
   <div id="error" class="error hidden"></div>
 
   <main>
@@ -87,7 +87,7 @@
       </div>
 
       <div class="card">
-        <h2>Heatmeisters</h2>
+        <h2>HeatMeisters</h2>
         <div id="hm-list"></div>
       </div>
     </section>
@@ -113,7 +113,7 @@
         <p class="muted small">One line every time the advice changes, every time the app sets the thermostat ("Sent"), and every time someone changed the thermostat by hand.</p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Time</th><th>What</th><th>Temperature</th><th>Thermostat was</th><th>Why</th><th>Heatmeisters</th></tr></thead>
+            <thead><tr><th>Time</th><th>What</th><th>Temperature</th><th>Thermostat was</th><th>Why</th></tr></thead>
             <tbody id="activity"></tbody>
           </table>
         </div>
@@ -135,13 +135,25 @@
               <option value="minutes">for the default hold length (below)</option>
             </select>
           </label>
-          <p class="muted small">Only with "Allow control" on (Configuration tab). Turn your other heating control (Node-RED, tado schedule changes) off first: the app would see their changes as changes by hand.</p>
+          <p class="muted small">Only with "Allow control" on (Configuration tab). Turn your other heating control (for example Node-RED) off first: the app would see their changes as changes by hand.</p>
         </div>
 
         <div class="card">
           <h2>Presence</h2>
-          <p class="muted small">The house is "occupied" when at least one of these persons is in the Home zone (Companion App).</p>
-          <div id="s-persons" class="checks"></div>
+          <p class="muted small">The house is occupied when at least one person who <b>counts</b> is home. A person is home when one of their counted trackers is in the Home zone.</p>
+          <div class="table-wrap">
+            <table class="persons">
+              <thead><tr><th>Person</th><th>Counts for home</th><th>Coming home</th><th>Trackers</th></tr></thead>
+              <tbody id="s-persons"></tbody>
+            </table>
+          </div>
+          <p class="muted small"><b>Coming home</b>: when this person is away and within the distance below, and getting closer, the app heats by the schedule. It uses the GPS position from the Companion App; nothing else to set up.</p>
+          <h3 class="sub">Which trackers count</h3>
+          <div class="checks">
+            <label><input type="checkbox" id="s-t-gps"> GPS (Companion App, zones)</label>
+            <label><input type="checkbox" id="s-t-router"> Router / network</label>
+            <label><input type="checkbox" id="s-t-bluetooth"> Bluetooth</label>
+          </div>
           <div class="grid2">
             <label>Away temperature (°C)
               <input id="s-away" type="number" min="5" max="22" step="0.5">
@@ -149,45 +161,16 @@
             <label>Wait before lowering (minutes)
               <input id="s-delay" type="number" min="0" max="120" step="1">
             </label>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>On the way home (optional)</h2>
-          <p class="muted small">With the Proximity integration: heat by the schedule when someone is close to home and travelling towards it.</p>
-          <div class="grid2">
-            <label>Distance sensor
-              <select id="s-dist"></select>
-            </label>
-            <label>Direction of travel sensor
-              <select id="s-dir"></select>
-            </label>
-            <label>Start within (km)
+            <label>"Coming home" within (km)
               <input id="s-km" type="number" min="0.5" max="200" step="0.5">
             </label>
           </div>
         </div>
 
         <div class="card">
-          <h2>Heatmeisters</h2>
-          <p class="muted small">Choose per Heatmeister the entity that switches it (from the SDR Engineering MQTT device) and, if there is one, its radiator (inlet) temperature.</p>
-          <div id="s-hms"></div>
-          <button id="s-hm-add" type="button" class="btn">Add Heatmeister</button>
-          <div class="grid2">
-            <label>Run when
-              <select id="s-hm-mode">
-                <option value="both">The thermostat heats, or the radiator is still warm</option>
-                <option value="demand">The thermostat heats</option>
-                <option value="inlet">The radiator is warm</option>
-              </select>
-            </label>
-            <label>Radiator warm from (°C)
-              <input id="s-hm-on" type="number" min="20" max="80" step="1">
-            </label>
-            <label>Radiator cool below (°C)
-              <input id="s-hm-off" type="number" min="15" max="75" step="1">
-            </label>
-          </div>
+          <h2>HeatMeisters</h2>
+          <p class="muted small">Found automatically (MQTT, SDR Engineering). The app shows what they do; they run by themselves on the radiator temperature. Tick the ones to show on the Home page.</p>
+          <div id="s-hms" class="checks"></div>
         </div>
 
         <div class="card">

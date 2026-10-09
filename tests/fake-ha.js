@@ -1,11 +1,16 @@
 'use strict';
 
 // A small fake Home Assistant for the tests: the WebSocket API the app uses.
-// The house: a tado V3 thermostat twice (local through HomeKit, and through
-// the tado cloud with Tado CE), three persons with the Companion App, the
-// Proximity integration, and three Heatmeisters through MQTT (SDR
-// Engineering). Change `world` to change the house. Every command the app
-// sends is recorded in `calls`; the tests check what was written.
+// A copy of the owner's house:
+// - a tado V3 thermostat twice: local through HomeKit, and through the tado
+//   cloud with Tado CE;
+// - three persons (Peter, Yvonne, Cheyenne), each with a Companion App GPS
+//   tracker and a router tracker; Peter also has a Bluetooth tracker;
+// - three HeatMeisters through MQTT with the real entity names
+//   (heatbooster_<room>_...). "Woonkamer-garage" is the owner's real one and
+//   controls the room temperature; the other two names are made up.
+// Change `world` to change the house. Every command the app sends is
+// recorded in `calls`; the tests check what was written.
 // climate.set_temperature changes world.target (both thermostat entities
 // show the same tado).
 
@@ -14,6 +19,7 @@ const WebSocket = require(path.join(__dirname, '..', 'smart_heating_planner', 'a
 
 const HA_VERSION = process.env.SHP_HA_VERSION || '2026.10.0';
 const TZ = 'Europe/Amsterdam';
+const HOME = { lat: 51.37, lon: 5.19 };
 
 function freshWorld() {
   return {
@@ -22,13 +28,17 @@ function freshWorld() {
     hvacAction: 'idle',
     homekitAvailable: true,
     failWrites: false,
+    // Where each person's GPS tracker is: 'home', 'not_home', a zone name or 'unknown'.
     persons: { peter: 'home', yvonne: 'not_home', cheyenne: 'not_home' },
-    distanceKm: 0,
-    direction: 'arrived',
+    // GPS position per person (lat, lon); missing = at home when home, else 30 km away.
+    pos: {},
+    // Overrides for the router and Bluetooth trackers: { peter: 'home' }.
+    router: {},
+    bluetooth: {},
     hm: [
-      { id: 'woonkamer', name: 'Woonkamer', on: false, inlet: 24 },
-      { id: 'keuken', name: 'Keuken', on: false, inlet: 23 },
-      { id: 'slaapkamer', name: 'Slaapkamer', on: false, inlet: 22 },
+      { id: 'woonkamer_garage', name: 'Woonkamer-garage', state: 'idle', inlet: 21.63, outlet: 21.04, room: 20.33, fan: 0, roomControl: true, roomTarget: 19 },
+      { id: 'eetkamer', name: 'Eetkamer', state: 'idle', inlet: 21.2, outlet: 20.9, room: 20.1, fan: 0, roomControl: false, roomTarget: 20 },
+      { id: 'keuken', name: 'Keuken', state: 'idle', inlet: 21.0, outlet: 20.7, room: 20.2, fan: 0, roomControl: false, roomTarget: 20 },
     ],
   };
 }
@@ -45,25 +55,69 @@ function climate(id, name, w, available = true) {
   } : { friendly_name: name }];
 }
 
+// Roughly `km` north of home.
+function north(km) {
+  return { lat: HOME.lat + km / 111.2, lon: HOME.lon };
+}
+
+function personStates(id, name, w) {
+  const gps = w.persons[id];
+  const router = w.router[id] ?? (gps === 'home' ? 'home' : gps === 'unknown' ? 'unknown' : 'not_home');
+  const pos = w.pos[id] || (gps === 'home' ? HOME : gps === 'unknown' ? null : north(30));
+  const trackers = [`device_tracker.${id}_phone`, `device_tracker.${id}_router`];
+  const list = [
+    [`device_tracker.${id}_phone`, gps, { friendly_name: `${name} phone`, source_type: 'gps', ...(pos ? { latitude: pos.lat, longitude: pos.lon, gps_accuracy: 12 } : {}) }],
+    [`device_tracker.${id}_router`, router, { friendly_name: `${name} router`, source_type: 'router' }],
+  ];
+  if (id === 'peter') {
+    trackers.push('device_tracker.peter_watch_ble');
+    list.push(['device_tracker.peter_watch_ble', w.bluetooth.peter ?? (gps === 'home' ? 'home' : 'not_home'), { friendly_name: 'Peter watch', source_type: 'bluetooth_le' }]);
+  }
+  // Like Home Assistant: a tracker at home wins; otherwise the GPS state.
+  const all = list.map((x) => x[1]);
+  const state = all.includes('home') ? 'home' : gps;
+  list.push([`person.${id}`, state, { friendly_name: name, device_trackers: trackers, ...(pos && state !== 'home' ? { latitude: pos.lat, longitude: pos.lon } : state === 'home' ? { latitude: HOME.lat, longitude: HOME.lon } : {}) }]);
+  return list;
+}
+
+function heatmeisterStates(h) {
+  const p = `heatbooster_${h.id}`;
+  const n = `HeatMeister - ${h.name}`;
+  const T = { unit_of_measurement: '°C', device_class: 'temperature', state_class: 'measurement' };
+  return [
+    [`binary_sensor.${p}_fan_enabled`, h.fan > 0 ? 'on' : 'off', { friendly_name: `${n} Fan status`, device_class: 'running' }],
+    [`number.${p}_ambientcontrol_temp`, h.roomTarget, { friendly_name: `${n} Room temperature target`, min: 14, max: 26, step: 0.5, ...T }],
+    [`number.${p}_ambientcontrol_temp_trim`, 0, { friendly_name: `${n} Room temperature trim`, min: -10, max: 10, step: 0.1, ...T }],
+    [`number.${p}_fan_speed`, h.fan, { friendly_name: `${n} Fan speed`, min: 0, max: 100, step: 1, unit_of_measurement: '%' }],
+    [`sensor.${p}_demand_trim`, '0.00', { friendly_name: `${n} Demand trim`, ...T }],
+    [`sensor.${p}_fan_control_state`, h.state, { friendly_name: `${n} Control state`, device_class: 'enum', options: ['idle', 'overrun', 'manual', 'heat', 'defrost', 'startup', 'cool', 'slave', 'sensor_error'] }],
+    [`sensor.${p}_ip`, '192.168.1.167', { friendly_name: `${n} IP address` }],
+    [`sensor.${p}_rssi`, -74, { friendly_name: `${n} WiFi signal strength`, unit_of_measurement: 'dB', device_class: 'signal_strength' }],
+    [`sensor.${p}_temp_ambient`, h.room, { friendly_name: `${n} Room temperature`, ...T }],
+    [`sensor.${p}_temp_delta_io`, Math.round((h.inlet - h.outlet) * 100) / 100, { friendly_name: `${n} Water temperature difference`, ...T }],
+    [`sensor.${p}_temp_inlet`, h.inlet, { friendly_name: `${n} Water inlet temperature`, ...T }],
+    [`sensor.${p}_temp_inlet_rate`, -0.02, { friendly_name: `${n} Inlet temperature rate of change`, unit_of_measurement: '°C/min' }],
+    [`sensor.${p}_temp_outlet`, h.outlet, { friendly_name: `${n} Water outlet temperature`, ...T }],
+    [`switch.${p}_ambientcontrol_enable`, h.roomControl ? 'on' : 'off', { friendly_name: `${n} Room temperature control` }],
+    [`switch.${p}_fan_boostmode`, 'off', { friendly_name: `${n} Boost mode` }],
+    [`switch.${p}_fan_controlmode`, 'off', { friendly_name: `${n} Manual control` }],
+  ];
+}
+
 function states() {
   const w = world;
   const list = [
     climate('climate.tado_smart_thermostat_ru3010610432', 'tado Smart Thermostat RU3010610432', w, w.homekitAvailable),
     climate('climate.verwarming', 'Verwarming', w),
-    ['person.peter', w.persons.peter, { friendly_name: 'Peter', source: 'device_tracker.pixel_peter' }],
-    ['person.yvonne', w.persons.yvonne, { friendly_name: 'Yvonne' }],
-    ['person.cheyenne', w.persons.cheyenne, { friendly_name: 'Cheyenne' }],
-    ['sensor.home_nearest_distance', String(w.distanceKm), { friendly_name: 'Home Nearest distance', unit_of_measurement: 'km', device_class: 'distance' }],
-    ['sensor.home_nearest_direction_of_travel', w.direction, { friendly_name: 'Home Nearest direction of travel', device_class: 'enum' }],
-    ['sensor.woonkamer_temperature', String(w.room), { friendly_name: 'Woonkamer temperature', unit_of_measurement: '°C', device_class: 'temperature' }],
-    ['fan.bambu_p1s_aux_fan', 'unavailable', { friendly_name: 'p1s_aux_fan' }],
-    ['zone.home', '1', { friendly_name: 'Home', latitude: 51.37, longitude: 5.19 }],
+    ...personStates('peter', 'Peter', w),
+    ...personStates('yvonne', 'Yvonne', w),
+    ...personStates('cheyenne', 'Cheyenne', w),
+    ['sensor.woonkamer_temp_hum_temperature', String(w.room), { friendly_name: 'Woonkamer_temp_hum Temperature', unit_of_measurement: '°C', device_class: 'temperature' }],
+    ['fan.p1s_aux_fan', 'unavailable', { friendly_name: 'p1s_aux_fan' }],
+    ['zone.home', '1', { friendly_name: 'Home', latitude: HOME.lat, longitude: HOME.lon, radius: 100 }],
+    ['zone.werk', '0', { friendly_name: 'Werk', latitude: 51.81, longitude: 4.67, radius: 200 }],
   ];
-  for (const h of w.hm) {
-    list.push([`fan.heatmeister_${h.id}`, h.on ? 'on' : 'off', { friendly_name: `Heatmeister ${h.name}`, percentage: h.on ? 60 : 0 }]);
-    list.push([`sensor.heatmeister_${h.id}_inlet_temperature`, String(h.inlet), { friendly_name: `Heatmeister ${h.name} Inlet temperature`, unit_of_measurement: '°C', device_class: 'temperature' }]);
-    list.push([`sensor.heatmeister_${h.id}_room_temperature`, String(w.room), { friendly_name: `Heatmeister ${h.name} Room temperature`, unit_of_measurement: '°C', device_class: 'temperature' }]);
-  }
+  for (const h of w.hm) list.push(...heatmeisterStates(h));
   const now = new Date().toISOString();
   return list.map(([entity_id, state, attributes]) => ({ entity_id, state: String(state), attributes, last_changed: now, last_updated: now, context: { id: 'x' } }));
 }
@@ -72,19 +126,11 @@ function registries() {
   const entities = [
     { entity_id: 'climate.tado_smart_thermostat_ru3010610432', platform: 'homekit_controller', device_id: 'dev_tado_hk' },
     { entity_id: 'climate.verwarming', platform: 'tado_ce', device_id: 'dev_tado_cloud' },
-    { entity_id: 'sensor.home_nearest_distance', platform: 'proximity', device_id: null },
-    { entity_id: 'sensor.home_nearest_direction_of_travel', platform: 'proximity', device_id: null },
   ];
   const devices = [
     { id: 'dev_tado_hk', manufacturer: 'tado', model: 'Smart Thermostat', name: 'tado Smart Thermostat' },
     { id: 'dev_tado_cloud', manufacturer: 'tado', model: 'RU02', name: 'Verwarming' },
   ];
-  for (const h of world.hm) {
-    devices.push({ id: `dev_hm_${h.id}`, manufacturer: 'SDR Engineering', model: 'HeatMeister', name: `HM ${h.name}` });
-    for (const e of [`fan.heatmeister_${h.id}`, `sensor.heatmeister_${h.id}_inlet_temperature`, `sensor.heatmeister_${h.id}_room_temperature`]) {
-      entities.push({ entity_id: e, platform: 'mqtt', device_id: `dev_hm_${h.id}` });
-    }
-  }
   return { entities, devices };
 }
 
@@ -124,4 +170,4 @@ function reset() {
   calls.length = 0;
 }
 
-module.exports = { start, world, calls, reset, states, registries, TZ };
+module.exports = { start, world, calls, reset, states, registries, north, HOME, TZ };

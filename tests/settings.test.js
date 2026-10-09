@@ -35,29 +35,32 @@ test('fresh install: connected, nothing chosen, setup hint data', async () => {
   assert.equal(s.advice.source, 'schedule');
 });
 
-test('entities: HomeKit thermostat first, three persons, three Heatmeisters', async () => {
+test('entities: HomeKit thermostat first, three persons with trackers, three HeatMeisters', async () => {
   const { data } = await req('GET', '/api/entities');
   assert.equal(data.thermostats[0].entity_id, 'climate.tado_smart_thermostat_ru3010610432');
   assert.equal(data.thermostats.find((t) => t.entity_id === 'climate.verwarming').cloud, true);
   assert.equal(data.persons.length, 3);
-  assert.equal(data.controls.filter((c) => c.heatmeister).length, 3);
-  assert.equal(data.temperatures.filter((c) => c.heatmeister).length, 6);
+  assert.equal(data.persons.find((p) => p.entity_id === 'person.peter').trackers.length, 3);
+  assert.equal(data.heatmeisters.length, 3);
 });
 
 test('settings are saved', async () => {
   const r = await save({
     thermostat: 'climate.tado_smart_thermostat_ru3010610432',
-    persons: ['person.peter', 'person.yvonne', 'person.cheyenne'],
+    persons: ['peter', 'yvonne', 'cheyenne'].map((n) => ({ entity_id: `person.${n}`, counts: true, coming_home: true })),
+    tracker_types: { gps: true, router: true, bluetooth: false },
     away_temp: 16,
     away_delay_minutes: 0,
-    proximity: { distance_entity: 'sensor.home_nearest_distance', direction_entity: 'sensor.home_nearest_direction_of_travel', distance_km: 10 },
-    heatmeisters: ['woonkamer', 'keuken', 'slaapkamer'].map((id) => ({ name: id, control_entity: `fan.heatmeister_${id}`, inlet_entity: `sensor.heatmeister_${id}_inlet_temperature` })),
-    heatmeister_rule: { mode: 'both', inlet_on: 35, inlet_off: 30 },
+    coming_home_km: 10,
+    heatmeisters: [{ prefix: 'heatbooster_woonkamer_garage', name: 'Woonkamer-garage' }, { prefix: 'heatbooster_eetkamer', name: 'Eetkamer' }, { prefix: 'heatbooster_keuken', name: 'Keuken' }],
     schedule: flat(20.5),
   });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   const s = await status();
   assert.deepEqual(s.setup, { thermostat: true, persons: 3, heatmeisters: 3 });
+  const saved = (await req('GET', '/api/settings')).data;
+  assert.equal(saved.tracker_types.bluetooth, false);
+  assert.equal(saved.persons[0].coming_home, true);
 });
 
 test('wrong settings are refused with a clear message', async () => {
@@ -65,10 +68,11 @@ test('wrong settings are refused with a clear message', async () => {
     { thermostat: 'sensor.not_a_climate' },
     { persons: ['light.kitchen'] },
     { away_temp: 40 },
-    { heatmeister_rule: { mode: 'both', inlet_on: 30, inlet_off: 35 } },
-    { heatmeisters: [{ name: 'x', control_entity: 'climate.tado' }] },
+    { heatmeisters: [{ prefix: 'climate.tado' }] },
     { schedule: { mon: [{ time: '7 uur', temp: 20 }] } },
-    { proximity: { distance_entity: 'person.peter', distance_km: 10 } },
+    { coming_home_km: 0 },
+    { tracker_types: { gps: false, router: false, bluetooth: false } },
+    { manual_change_until: 'forever' },
   ];
   for (const body of cases) {
     const r = await save(body);
@@ -98,8 +102,6 @@ async function refreshed() {
 
 test('everybody leaves: away temperature', async () => {
   fakeHa.world.persons = { peter: 'not_home', yvonne: 'Werk', cheyenne: 'not_home' };
-  fakeHa.world.distanceKm = 30;
-  fakeHa.world.direction = 'away_from';
   const s = await refreshed();
   assert.equal(s.advice.target, 16);
   assert.equal(s.advice.source, 'away');
@@ -117,14 +119,46 @@ test('away delay: first wait, then lower', async () => {
   assert.equal((await refreshed()).advice.source, 'away');
 });
 
-test('on the way home within 10 km: the schedule', async () => {
-  fakeHa.world.distanceKm = 7;
-  fakeHa.world.direction = 'towards';
+test('coming home (GPS, within 10 km and getting closer): the schedule', async () => {
+  fakeHa.world.pos.peter = fakeHa.north(14);
+  await refreshed();
+  fakeHa.world.pos.peter = fakeHa.north(7);
   const s = await refreshed();
   assert.equal(s.advice.source, 'approaching');
   assert.equal(s.advice.target, 20.5);
-  fakeHa.world.direction = 'stationary';
+  assert.equal(s.presence.onTheWay.find((p) => p.entity_id === 'person.peter').towards, true);
+  fakeHa.world.pos.peter = fakeHa.north(12); // turned around
   assert.equal((await refreshed()).advice.source, 'away');
+  delete fakeHa.world.pos.peter;
+});
+
+test('coming home off for a person: their approach is ignored', async () => {
+  await save({ persons: [{ entity_id: 'person.peter', counts: true, coming_home: false }, { entity_id: 'person.yvonne', counts: true, coming_home: true }, { entity_id: 'person.cheyenne', counts: true, coming_home: true }] });
+  fakeHa.world.pos.peter = fakeHa.north(9);
+  await refreshed();
+  fakeHa.world.pos.peter = fakeHa.north(5);
+  assert.equal((await refreshed()).advice.source, 'away');
+  delete fakeHa.world.pos.peter;
+  await save({ persons: ['peter', 'yvonne', 'cheyenne'].map((n) => ({ entity_id: `person.${n}`, counts: true, coming_home: true })) });
+});
+
+test('Bluetooth does not count: a watch at home does not make Peter home', async () => {
+  fakeHa.world.bluetooth.peter = 'home';
+  assert.equal((await refreshed()).advice.source, 'away');
+  await save({ tracker_types: { gps: true, router: true, bluetooth: true } });
+  assert.equal((await status()).advice.source, 'schedule');
+  await save({ tracker_types: { gps: true, router: true, bluetooth: false } });
+  delete fakeHa.world.bluetooth.peter;
+});
+
+test('a person who does not count: home, but the house still counts as empty', async () => {
+  await save({ persons: [{ entity_id: 'person.peter', counts: true, coming_home: true }, { entity_id: 'person.yvonne', counts: true, coming_home: true }, { entity_id: 'person.cheyenne', counts: false, coming_home: false }] });
+  fakeHa.world.persons.cheyenne = 'home';
+  const s = await refreshed();
+  assert.equal(s.advice.source, 'away');
+  assert.equal(s.presence.people.find((p) => p.entity_id === 'person.cheyenne').counts, false);
+  fakeHa.world.persons.cheyenne = 'not_home';
+  await save({ persons: ['peter', 'yvonne', 'cheyenne'].map((n) => ({ entity_id: `person.${n}`, counts: true, coming_home: true })) });
 });
 
 test('preheat switch point: heat even when nobody is home', async () => {
@@ -137,10 +171,12 @@ test('preheat switch point: heat even when nobody is home', async () => {
 
 test('location unknown counts as home', async () => {
   fakeHa.world.persons.cheyenne = 'unknown';
+  fakeHa.world.router.cheyenne = 'unknown';
   const s = await refreshed();
   assert.equal(s.advice.source, 'schedule');
   assert.equal(s.presence.unknown.length, 1);
   fakeHa.world.persons.cheyenne = 'not_home';
+  delete fakeHa.world.router.cheyenne;
 });
 
 test('manual hold: wins, then ends', async () => {
@@ -158,21 +194,21 @@ test('manual hold: wins, then ends', async () => {
   assert.notEqual(r.data.advice.source, 'hold');
 });
 
-test('Heatmeisters: run on heat demand and while the radiator is warm', async () => {
+test('HeatMeisters: their own state is shown, nothing is sent to them', async () => {
   fakeHa.world.hvacAction = 'heating';
-  let s = await refreshed();
+  fakeHa.world.hm[0].state = 'heat';
+  fakeHa.world.hm[0].fan = 55;
+  fakeHa.world.hm[0].inlet = 48.5;
+  const s = await refreshed();
   assert.equal(s.demand, true);
-  assert.ok(s.heatmeisters.every((h) => h.advice === true));
+  const wg = s.heatmeisters.find((h) => h.prefix === 'heatbooster_woonkamer_garage');
+  assert.equal(wg.name, 'Woonkamer-garage');
+  assert.equal(wg.running, true);
+  assert.equal(wg.fan_speed, 55);
+  assert.equal(wg.inlet, 48.5);
+  assert.equal(wg.room_control, true);
+  assert.equal(s.heatmeisters.find((h) => h.prefix === 'heatbooster_keuken').running, false);
   fakeHa.world.hvacAction = 'idle';
-  fakeHa.world.hm[0].inlet = 45;
-  s = await refreshed();
-  assert.deepEqual(s.heatmeisters.map((h) => h.advice), [true, false, false]);
-  fakeHa.world.hm[0].inlet = 32; // between off (30) and on (35): stays on
-  s = await refreshed();
-  assert.equal(s.heatmeisters[0].advice, true);
-  fakeHa.world.hm[0].inlet = 25;
-  s = await refreshed();
-  assert.equal(s.heatmeisters[0].advice, false);
 });
 
 test('thermostat unavailable: no change advised, the page still works', async () => {
@@ -195,7 +231,8 @@ test('diagnostics: download without names of persons', async () => {
   assert.match(r.headers.get('content-disposition'), /attachment/);
   const text = JSON.stringify(r.data);
   assert.ok(!/Peter|Yvonne|Cheyenne/.test(text), 'a name is in the diagnostics');
-  assert.ok(!/person\.peter/.test(text));
+  assert.ok(!/person\.peter|device_tracker\.peter/.test(text));
+  assert.ok(!/Werk/.test(text), 'a place is in the diagnostics');
   assert.ok(!/test-token/.test(text));
 });
 

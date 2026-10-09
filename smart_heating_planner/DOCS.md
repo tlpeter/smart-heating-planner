@@ -1,8 +1,8 @@
 # Smart Heating Planner
 
-Heats the house on a week schedule and on who is home, with a tado° thermostat and optional Heatmeister radiator fans.
+Heats the house on a week schedule and on who is home, with a tado° thermostat and optional HeatMeister radiator fans.
 
-By default the app only **watches**: it shows what it would do and logs it on the Activity page, but sends nothing. Turn on **Allow control** in the Configuration tab to let it set the thermostat. The Heatmeisters are not controlled yet.
+By default the app only **watches**: it shows what it would do and logs it on the Activity page, but sends nothing. Turn on **Allow control** in the Configuration tab to let it set the thermostat. The HeatMeisters run by themselves; the app only shows what they do.
 
 > [!IMPORTANT]
 > Before you turn on **Allow control**, turn off your other heating control (for example a Node-RED flow or automations that set the thermostat). Otherwise both change the thermostat, and the app sees the other one's changes as changes by hand.
@@ -13,10 +13,10 @@ By default the app only **watches**: it shows what it would do and logs it on th
 
 - **Advice now**: the temperature the thermostat should have, and why (Schedule, Away, Preheat, On the way, Manual hold).
 - **Thermostat**: the room temperature, what it is set to, and whether it is heating. "Would change 19.0 °C → 20.5 °C" means the thermostat does not match the advice (with control on: "Will change"). With control on, the line below shows the last command and how many changes were made in the last 24 hours.
-- **Who is home**: per person home, away (with the zone) or location unknown.
+- **Who is home**: per person home, away (with the zone, and the distance when coming home is on), location unknown, or "does not count".
 - **Schedule**: the switch point that is valid now, and the next one.
 - **Manual hold**: keep a temperature for 1, 2 or 4 hours, or until the next switch point. It wins over everything else and ends by itself. **End hold** stops it early. A change on the thermostat itself shows here too ("Changed on the thermostat: keeping 22 °C until 17:00").
-- **Heatmeisters**: per Heatmeister what it is doing now and whether it should run.
+- **HeatMeisters**: per HeatMeister its control state (idle, heat, overrun, …), running or off, the radiator in/out temperature, the room temperature (and its own room target when it controls the room), and the fan speed.
 
 ### Schedule
 
@@ -39,7 +39,7 @@ At most 12 switch points per day; temperatures 5–25 °C, in steps of 0.5 °C.
 
 One line for every event, the last 500 are kept:
 
-- **Advice**: the advice changed (with the reason and the Heatmeister advice).
+- **Advice**: the advice changed (with the reason).
 - **Sent**: the app set the thermostat (only with Allow control on).
 - **Changed by hand**: someone changed the thermostat; the app keeps it for a while.
 - **Error**: setting the thermostat failed.
@@ -49,18 +49,19 @@ One line for every event, the last 500 are kept:
 | Setting | What it does |
 | --- | --- |
 | **Thermostat entity** | The `climate` entity of your thermostat. Local HomeKit thermostats are listed first. A tado cloud thermostat (tado, Tado CE) gets a warning: tado allows 100 cloud requests per day without a subscription. |
-| **Persons** | The persons that count for "home". The house is occupied when at least one of them is in the Home zone. A person with an unknown location counts as home. No persons chosen: the schedule is always followed. |
+| **Counts for home** (per person) | The house is occupied when at least one person who counts is home. Turn it off for someone who should not keep the heating on (for example a child who is away for a week). Nobody counts: the schedule is always followed. |
+| **Coming home** (per person) | When this person is away, within **"Coming home" within** km of home and getting closer, the app heats by the schedule. It uses the GPS position from the Companion App and the Home zone; no extra integration is needed. Turn it off for someone who often drives past the house. |
+| **Trackers** (per person) | The trackers behind the person in Home Assistant, with their kind and state. Crossed out: that kind does not count (see below). |
+| **Which trackers count** | GPS (Companion App, uses your zones), router / network, Bluetooth. A person is home when one of their counted trackers is in the Home zone. Turn Bluetooth off when a Bluetooth device (a watch, a car) can be home without the person. A person with no counted tracker that knows where they are counts as home. |
 | **Away temperature** | The temperature when nobody is home (default 16 °C). A lower schedule temperature is kept. |
 | **Wait before lowering** | Minutes to wait after the last person left before lowering (default 10). Prevents a short trip or a phone that briefly loses its location from lowering the heating. |
-| **Distance sensor**, **Direction of travel sensor**, **Start within** | From the Proximity integration (Settings → Devices & services → Add integration → Proximity, with the Home zone and your persons). When the nearest person is within the distance and travelling **towards** home, the app heats by the schedule. Without a direction sensor, being within the distance is enough. |
-| **Heatmeisters** | Per Heatmeister: a name, the entity that switches it (a `fan`, `switch`, `number`, `select` or `light` from the SDR Engineering MQTT device; ★ marks entities that look like a Heatmeister), and optionally its radiator (inlet) temperature sensor. At most 6. |
-| **Run when** | *The thermostat heats, or the radiator is still warm* (default): runs while the thermostat asks for heat, and after that while the radiator is still warm, to use the warmth that is left. *The thermostat heats*: only while it asks for heat. *The radiator is warm*: only on the inlet temperature. |
-| **Radiator warm from / cool below** | The inlet temperatures to switch on (default 35 °C) and off (default 30 °C). The gap keeps the fans from switching on and off all the time. |
+| **"Coming home" within** | The distance in km for "coming home" (default 10). "Getting closer" means: the last GPS position is at least 100 m closer than the one before, and not older than 20 minutes. |
+| **HeatMeisters** | Found automatically from their entity names (`sensor.heatbooster_<room>_temp_inlet`, `…_fan_control_state`, …; newer installs use `heatmeister_`). Tick the ones to show on the Home page. At most 6. |
 | **A change on the thermostat itself is kept** | With control on: when someone turns the tado (or the tado app) to another temperature, the app keeps it *until the next switch point* (default) or *for the default hold length*. Then it goes back to the schedule. |
 | **Default length** | The default length of a manual hold, in minutes. |
 | **Download diagnostics** | A file to attach to a bug report. Names of persons, places and the token are left out. |
 
-"Heating" comes from the thermostat's `hvac_action` attribute (`heating`). The HomeKit tado thermostat reports it.
+"Thermostat asks for heat" comes from the thermostat's `hvac_action` attribute (`heating`). The HomeKit tado thermostat reports it.
 
 ## How the advice is made
 

@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { decideTarget, decideHeatmeister, heatDemand } = require('../smart_heating_planner/app/decide');
+const { decideTarget, heatDemand } = require('../smart_heating_planner/app/decide');
 
 const TZ = 'Europe/Amsterdam';
 const NOW = new Date('2026-10-09T15:00:00+02:00').getTime();
@@ -75,26 +75,4 @@ test('heat demand comes from hvac_action', () => {
   assert.equal(heatDemand({ available: true, hvac_action: 'heating' }), true);
   assert.equal(heatDemand({ available: true, hvac_action: 'idle' }), false);
   assert.equal(heatDemand({ available: false, hvac_action: 'heating' }), false);
-});
-
-const rule = { mode: 'both', inlet_on: 35, inlet_off: 30 };
-test('Heatmeister "both": runs on demand, and after it while the radiator is warm', () => {
-  assert.equal(decideHeatmeister({ rule, demand: true, inlet: 20, prevOn: false }).on, true);
-  assert.equal(decideHeatmeister({ rule, demand: false, inlet: 40, prevOn: false }).on, true);
-  assert.equal(decideHeatmeister({ rule, demand: false, inlet: 25, prevOn: true }).on, false);
-  assert.equal(decideHeatmeister({ rule, demand: false, inlet: null, prevOn: true }).on, false);
-});
-
-test('Heatmeister gap: between "off" and "on" it keeps what it was', () => {
-  const r = { ...rule, mode: 'inlet' };
-  assert.equal(decideHeatmeister({ rule: r, demand: false, inlet: 32, prevOn: false }).on, false);
-  assert.equal(decideHeatmeister({ rule: r, demand: false, inlet: 32, prevOn: true }).on, true);
-  assert.equal(decideHeatmeister({ rule: r, demand: false, inlet: 29, prevOn: true }).on, false);
-  assert.equal(decideHeatmeister({ rule: r, demand: true, inlet: null, prevOn: false }).on, false);
-});
-
-test('Heatmeister "demand": only while the thermostat heats', () => {
-  const r = { ...rule, mode: 'demand' };
-  assert.equal(decideHeatmeister({ rule: r, demand: true, inlet: 20 }).on, true);
-  assert.equal(decideHeatmeister({ rule: r, demand: false, inlet: 60 }).on, false);
 });

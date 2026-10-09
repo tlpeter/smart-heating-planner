@@ -1,7 +1,10 @@
 'use strict';
 
-// Find the entities the Settings page offers: thermostats, persons, proximity
-// sensors and Heatmeister entities. Only reads states and the registries.
+// Find what the Settings page offers: thermostats, persons (with their
+// trackers) and HeatMeisters. Only reads states and the entity registry.
+
+const heatmeister = require('./heatmeister');
+const { TYPE_OF } = require('./presence');
 
 // Integrations that reach tado through its cloud. tado limits the number of
 // cloud requests per day (100 without a subscription), so a local HomeKit
@@ -9,73 +12,52 @@
 const TADO_CLOUD = new Set(['tado', 'tado_ce', 'tado_hijack', 'tado_x']);
 
 function friendly(st) {
-  return (st.attributes && st.attributes.friendly_name) || st.entity_id;
+  return (st && st.attributes && st.attributes.friendly_name) || (st && st.entity_id);
 }
 
-// states: HA states. entities/devices: registry lists (may be empty).
-function detect(states, entities = [], devices = []) {
+// states: HA states. entities: the entity registry (may be empty).
+function detect(states, entities = []) {
   const reg = new Map(entities.map((e) => [e.entity_id, e]));
-  const dev = new Map(devices.map((d) => [d.id, d]));
+  const byId = new Map((states || []).map((s) => [s.entity_id, s]));
   const platformOf = (id) => (reg.get(id) || {}).platform || null;
-  const deviceOf = (id) => {
-    const e = reg.get(id);
-    return e && e.device_id ? dev.get(e.device_id) || null : null;
-  };
 
   const thermostats = [];
   const persons = [];
-  const distance = [];
-  const direction = [];
-  const controls = [];
-  const temperatures = [];
-
   for (const st of states || []) {
     const id = st.entity_id;
     const domain = id.split('.')[0];
-    const a = st.attributes || {};
-    const item = { entity_id: id, name: friendly(st), state: st.state };
     if (domain === 'climate') {
       const platform = platformOf(id);
       thermostats.push({
-        ...item,
+        entity_id: id,
+        name: friendly(st),
+        state: st.state,
         platform,
         cloud: platform ? TADO_CLOUD.has(platform) : false,
         local: platform === 'homekit_controller',
       });
     } else if (domain === 'person') {
-      persons.push(item);
-    } else if (domain === 'sensor') {
-      if (/_nearest_distance$/.test(id) || (a.device_class === 'distance' && /distance/.test(id))) distance.push(item);
-      if (/_direction_of_travel$/.test(id)) direction.push(item);
-      if (a.device_class === 'temperature' || a.unit_of_measurement === '°C') temperatures.push({ ...item, heatmeister: isHeatmeister(id, st, deviceOf(id)) });
-    } else if (['fan', 'switch', 'number', 'select', 'light'].includes(domain)) {
-      const hm = isHeatmeister(id, st, deviceOf(id));
-      // Show all fans; other types only when they look like a Heatmeister.
-      if (hm || domain === 'fan') controls.push({ ...item, heatmeister: hm });
+      const list = Array.isArray(st.attributes && st.attributes.device_trackers) ? st.attributes.device_trackers : [];
+      persons.push({
+        entity_id: id,
+        name: friendly(st),
+        state: st.state,
+        trackers: list.map((tid) => {
+          const t = byId.get(tid);
+          return { entity_id: tid, name: t ? friendly(t) : tid, type: TYPE_OF[t && t.attributes && t.attributes.source_type] || 'router', state: t ? t.state : 'missing' };
+        }),
+      });
     }
   }
-  const byHm = (x, y) => (y.heatmeister - x.heatmeister) || x.entity_id.localeCompare(y.entity_id);
-  const byId = (x, y) => x.entity_id.localeCompare(y.entity_id);
+  const byEntity = (x, y) => x.entity_id.localeCompare(y.entity_id);
   // Local thermostats first, cloud ones last.
-  thermostats.sort((x, y) => (y.local - x.local) || (x.cloud - y.cloud) || byId(x, y));
+  thermostats.sort((x, y) => (y.local - x.local) || (x.cloud - y.cloud) || byEntity(x, y));
   return {
     thermostats,
-    persons: persons.sort(byId),
-    distance: distance.sort(byId),
-    direction: direction.sort(byId),
-    controls: controls.sort(byHm),
-    temperatures: temperatures.sort(byHm),
+    persons: persons.sort(byEntity),
+    heatmeisters: heatmeister.discover(states).map((d) => ({ prefix: d.prefix, name: d.name, entities: Object.keys(d.entities).length })),
+    homeZone: byId.has('zone.home'),
   };
-}
-
-// Heatmeister entities come in through MQTT (SDR Engineering). Recognise them
-// by the device's maker or model, or by "heatmeister" in the name. The
-// product used to be called "Heatbooster"; older entity ids still use it
-// (for example sensor.heatbooster_... named "HeatMeister - Woonkamer ...").
-function isHeatmeister(id, st, device) {
-  const text = [id, friendly(st), device && device.manufacturer, device && device.model, device && device.name]
-    .filter(Boolean).join(' ').toLowerCase();
-  return /heat\s*meister|heat\s*booster|sdr engineering/.test(text);
 }
 
 module.exports = { detect, TADO_CLOUD };

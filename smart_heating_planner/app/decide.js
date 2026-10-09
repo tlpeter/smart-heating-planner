@@ -1,7 +1,10 @@
 'use strict';
 
-// The decision: which temperature should the thermostat have now, and should
-// the Heatmeisters run? Pure logic, no Home Assistant: easy to test.
+// The decision: which temperature should the thermostat have now?
+// Pure logic, no Home Assistant: easy to test.
+//
+// The HeatMeisters run by themselves (they watch the radiator temperature);
+// the app only shows what they do.
 //
 // Order (the first that applies wins):
 //   1. A manual hold (set on the Home page) until its end time.
@@ -71,27 +74,4 @@ function heatDemand(thermostat) {
   return !!(thermostat && thermostat.available && thermostat.hvac_action === 'heating');
 }
 
-// Should one Heatmeister run?
-//   rule.mode: 'demand' - only while the thermostat asks for heat
-//              'inlet'  - while the radiator is warm (inlet temperature)
-//              'both'   - either of the two (default; also uses the
-//                         warmth that is left in the radiator afterwards)
-//   rule.inlet_on / rule.inlet_off: °C, with a gap so it does not flip
-//   prevOn: what the advice was last time (for the gap)
-// Returns { on, reason }.
-function decideHeatmeister({ rule, demand, inlet, prevOn }) {
-  const mode = rule.mode || 'both';
-  const hasInlet = Number.isFinite(inlet);
-  let warm = false;
-  if (hasInlet) warm = prevOn ? inlet >= Number(rule.inlet_off) : inlet >= Number(rule.inlet_on);
-  if (mode === 'demand') return { on: demand, reason: demand ? 'Thermostat is heating' : 'No heat demand' };
-  if (mode === 'inlet') {
-    if (!hasInlet) return { on: false, reason: 'No radiator temperature' };
-    return { on: warm, reason: warm ? `Radiator is warm (${inlet} °C)` : `Radiator is cool (${inlet} °C)` };
-  }
-  if (demand) return { on: true, reason: 'Thermostat is heating' };
-  if (warm) return { on: true, reason: `Radiator is still warm (${inlet} °C)` };
-  return { on: false, reason: hasInlet ? `No heat demand, radiator ${inlet} °C` : 'No heat demand' };
-}
-
-module.exports = { decideTarget, decideHeatmeister, heatDemand };
+module.exports = { decideTarget, heatDemand };

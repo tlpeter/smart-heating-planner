@@ -52,7 +52,6 @@ const READ_ONLY_COMMANDS = new Set([
   'get_states',
   'get_config',
   'config/entity_registry/list',
-  'config/device_registry/list',
 ]);
 
 const CONTROL_TOKEN = Symbol('thermostat control');
