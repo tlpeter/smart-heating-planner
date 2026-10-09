@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - run: npm ci
@@ -58,7 +58,7 @@ jobs:
         file: [settings.test.js, control-app.test.js, schedule.test.js, control.test.js, presence.test.js, decide.test.js, entities.test.js, persistence.test.js]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - run: npm ci
@@ -91,7 +91,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - uses: actions/download-artifact@v4
