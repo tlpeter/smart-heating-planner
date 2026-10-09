@@ -37,12 +37,29 @@ test('reading one: temperatures, fan, room control', () => {
   assert.equal(r.fan_speed, 0);
 });
 
-test('running while heating or in overrun', () => {
+test('running: the fan status and fan speed decide, not the control state', () => {
   fakeHa.world.hm[0].state = 'heat';
   fakeHa.world.hm[0].fan = 45;
   assert.equal(hm.read(fakeHa.states(), 'heatbooster_woonkamer_garage').running, true);
   fakeHa.world.hm[0].state = 'overrun';
-  assert.equal(hm.read(fakeHa.states(), 'heatbooster_woonkamer_garage').running, true);
+  fakeHa.world.hm[0].fan = 0;
+  assert.equal(hm.read(fakeHa.states(), 'heatbooster_woonkamer_garage').running, false, 'fan at 0 % is off');
+});
+
+test('a "slave" HeatMeister with the fan at 0 % is not running', () => {
+  fakeHa.world.hm[1].state = 'slave';
+  assert.equal(hm.read(fakeHa.states(), 'heatbooster_woonkamer_voor').running, false);
+  fakeHa.world.hm[1].fan = 30;
+  assert.equal(hm.read(fakeHa.states(), 'heatbooster_woonkamer_voor').running, true);
+});
+
+test('without fan status or fan speed, the control state is used (slave does not count)', () => {
+  const only = (state) => [
+    { entity_id: 'sensor.heatbooster_x_fan_control_state', state, attributes: { friendly_name: 'HeatMeister - X Control state' } },
+  ];
+  assert.equal(hm.read(only('heat'), 'heatbooster_x').running, true);
+  assert.equal(hm.read(only('slave'), 'heatbooster_x').running, false);
+  assert.equal(hm.read(only('idle'), 'heatbooster_x').running, false);
 });
 
 test('unknown prefix or unavailable device', () => {
@@ -56,6 +73,7 @@ test('newer "heatmeister_" names work too', () => {
     { entity_id: 'sensor.heatmeister_zolder_temp_inlet', state: '30', attributes: { friendly_name: 'HeatMeister - Zolder Water inlet temperature' } },
     { entity_id: 'sensor.heatmeister_zolder_fan_control_state', state: 'heat', attributes: { friendly_name: 'HeatMeister - Zolder Control state' } },
   ];
+  // (no fan status or speed here, so "heat" counts as running)
   const [d] = hm.discover(states);
   assert.equal(d.name, 'Zolder');
   assert.equal(hm.read(states, 'heatmeister_zolder').running, true);

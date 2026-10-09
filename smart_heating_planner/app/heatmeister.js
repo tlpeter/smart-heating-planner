@@ -29,8 +29,10 @@ const PARTS = {
 };
 const PART_RE = new RegExp(`^(sensor|number|switch|binary_sensor)\\.((?:heatbooster|heatmeister|heat_meister)_[a-z0-9_]+?)_(${Object.keys(PARTS).join('|')})$`);
 
-// Control states in which the fan runs.
-const RUNNING = new Set(['heat', 'overrun', 'manual', 'startup', 'defrost', 'cool', 'slave']);
+// Control states in which the fan runs. Only used when the device has no
+// fan status or fan speed: those say it better. "slave" is not in the list:
+// a slave follows another HeatMeister and is not running by itself.
+const RUNNING = new Set(['heat', 'overrun', 'manual', 'startup', 'defrost', 'cool']);
 
 function num(v) {
   const n = Number(v);
@@ -64,6 +66,14 @@ function discover(states) {
     .sort((a, b) => a.prefix.localeCompare(b.prefix));
 }
 
+// Does the fan run? The fan status and the fan speed say it; only without
+// both, the control state is used.
+function isRunning(fanOn, fanSpeed, control) {
+  if (fanOn === 'on' || (fanSpeed !== null && fanSpeed > 0)) return true;
+  if (fanOn === 'off' || fanSpeed !== null) return false;
+  return RUNNING.has(control);
+}
+
 // What one HeatMeister is doing now.
 function read(states, prefix) {
   const byId = new Map((states || []).map((s) => [s.entity_id, s]));
@@ -80,7 +90,7 @@ function read(states, prefix) {
     name: dev.name,
     available: control !== null || val('inlet') !== null,
     control_state: control,
-    running: RUNNING.has(control) || val('fan_on') === 'on',
+    running: isRunning(val('fan_on'), num(val('fan_speed')), control),
     fan_speed: num(val('fan_speed')),
     inlet: num(val('inlet')),
     outlet: num(val('outlet')),

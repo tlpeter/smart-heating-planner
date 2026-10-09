@@ -162,7 +162,7 @@ function renderStatus(s) {
     ? `<p class="muted small">Thermostat asks for heat: <b>${s.demand ? 'yes' : 'no'}</b></p>` + rtLine + hms.map((h) => `
       <div class="hm">
         <span class="shape ${h.running ? 'c-purple' : 'c-grey'}">${icon(h.running ? 'fan' : 'fanOff')}</span>
-        <div class="txt"><div class="primary">${esc(h.name)} <span class="muted small">· ${esc(h.available ? (h.control_state || '–') : 'unavailable')}</span></div>
+        <div class="txt"><div class="primary">${esc(h.name)} <span class="muted small">· ${esc(!h.available ? 'unavailable' : h.control_state === 'slave' ? 'slave (follows another HeatMeister)' : (h.control_state || 'no control state'))}</span></div>
           <div class="hmgrid">
             <span>Radiator in <b>${v(h.inlet)}</b></span>
             <span>Out <b>${v(h.outlet)}</b></span>

@@ -3,6 +3,7 @@
 ## 0.4.2-dev
 
 - Home › Who is home only shows the persons who count for home; the others (for example admin or tablet users) are hidden.
+- HeatMeisters: "running" now comes from the fan status and fan speed. A HeatMeister in "slave" mode with its fan at 0 % was wrongly shown as running.
 
 ## 0.4.1-dev
 

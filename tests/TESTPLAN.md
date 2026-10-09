@@ -15,7 +15,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
-| HeatMeisters | 9 of 9 ✓ |
+| HeatMeisters | 11 of 11 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
@@ -160,7 +160,9 @@ Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_
 - ✓ the three HeatMeisters are found, with readable names
 - ✓ all known parts are recognised, and similar names are not mixed up
 - ✓ reading one: temperatures, fan, room control
-- ✓ running while heating or in overrun
+- ✓ running: the fan status and fan speed decide, not the control state
+- ✓ a "slave" HeatMeister with the fan at 0 % is not running
+- ✓ without fan status or fan speed, the control state is used (slave does not count)
 - ✓ unknown prefix or unavailable device
 - ✓ newer "heatmeister_" names work too
 - ✓ the default MQTT topic is "<Name>/temp-ambient-ext", like the Node-RED flow

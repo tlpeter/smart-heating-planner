@@ -16,7 +16,7 @@ By default the app only **watches**: it shows what it would do and logs it on th
 - **Who is home**: per person home, away (with the zone, and the distance when coming home is on), or location unknown. Persons who do not count are not shown.
 - **Schedule**: the switch point that is valid now, and the next one.
 - **Manual hold**: keep a temperature for 1, 2 or 4 hours, or until the next switch point. It wins over everything else and ends by itself. **End hold** stops it early. A change on the thermostat itself shows here too ("Changed on the thermostat: keeping 22 °C until 17:00").
-- **HeatMeisters**: per HeatMeister its control state (idle, heat, overrun, …), running or off, the radiator in/out temperature, the room temperature (and its own room target when it controls the room), and the fan speed. With sending on, also the room temperature last sent to it and when.
+- **HeatMeisters**: per HeatMeister its control state (idle, heat, overrun, slave = follows another HeatMeister, …), running or off (from the fan status and fan speed), the radiator in/out temperature, the room temperature (and its own room target when it controls the room), and the fan speed. With sending on, also the room temperature last sent to it and when.
 
 ### Schedule
 
