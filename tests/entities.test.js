@@ -22,5 +22,8 @@ test('persons with their trackers and tracker kinds', () => {
 
 test('HeatMeisters are offered', () => {
   const r = detect(fakeHa.states());
-  assert.deepEqual(r.heatmeisters.map((h) => h.name), ['Eetkamer', 'Keuken', 'Woonkamer-garage']);
+  assert.deepEqual(r.heatmeisters.map((h) => h.name), ['Woonkamer-gang', 'Woonkamer-garage', 'Woonkamer-voor']);
+  assert.equal(r.heatmeisters[1].topic, 'Woonkamer-garage/temp-ambient-ext');
+  assert.ok(r.temperatures.some((t) => t.entity_id === 'sensor.tado_smart_thermostat_ru3010610432_current_temperature'));
+  assert.ok(!r.temperatures.some((t) => t.entity_id.includes('heatbooster')), 'HeatMeister sensors are not offered as room source');
 });

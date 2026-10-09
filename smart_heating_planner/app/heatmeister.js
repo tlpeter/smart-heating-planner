@@ -94,4 +94,19 @@ function read(states, prefix) {
   return out;
 }
 
-module.exports = { discover, read, nameFrom, PARTS, RUNNING };
+// The MQTT topic a HeatMeister listens to for an outside room temperature.
+function defaultTopic(name) {
+  return `${name}/temp-ambient-ext`;
+}
+
+// Should the room temperature be sent (again) to one topic?
+// last: { value, at } of the last send, or undefined.
+// Sends when the value changed by 0.1 °C or more, or every intervalMinutes.
+function shouldPublish({ value, last, now, intervalMinutes }) {
+  if (!Number.isFinite(value)) return false;
+  if (!last) return true;
+  if (Math.abs(value - last.value) >= 0.1 - 1e-9) return true;
+  return now - last.at >= intervalMinutes * 60000;
+}
+
+module.exports = { discover, read, nameFrom, defaultTopic, shouldPublish, PARTS, RUNNING };

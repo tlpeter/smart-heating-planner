@@ -11,6 +11,7 @@ const DEFAULTS = {
   log_level: 'info',
   refresh_seconds: 30,
   allow_control: false,
+  allow_heatmeister_temperature: false,
   max_writes_per_day: 48,
 };
 
@@ -21,6 +22,7 @@ function load() {
     const n = Math.round(Number(merged.refresh_seconds));
     merged.refresh_seconds = n >= 10 && n <= 600 ? n : DEFAULTS.refresh_seconds;
     merged.allow_control = merged.allow_control === true;
+    merged.allow_heatmeister_temperature = merged.allow_heatmeister_temperature === true;
     const w = Math.round(Number(merged.max_writes_per_day));
     merged.max_writes_per_day = w >= 1 && w <= 500 ? w : DEFAULTS.max_writes_per_day;
     if (!['debug', 'info', 'warning', 'error'].includes(merged.log_level)) merged.log_level = DEFAULTS.log_level;

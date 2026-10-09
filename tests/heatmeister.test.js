@@ -11,7 +11,7 @@ test.beforeEach(() => fakeHa.reset());
 
 test('the three HeatMeisters are found, with readable names', () => {
   const list = hm.discover(fakeHa.states());
-  assert.deepEqual(list.map((d) => d.prefix), ['heatbooster_eetkamer', 'heatbooster_keuken', 'heatbooster_woonkamer_garage']);
+  assert.deepEqual(list.map((d) => d.prefix), ['heatbooster_woonkamer_gang', 'heatbooster_woonkamer_garage', 'heatbooster_woonkamer_voor']);
   assert.equal(list.find((d) => d.prefix === 'heatbooster_woonkamer_garage').name, 'Woonkamer-garage');
 });
 
@@ -47,8 +47,8 @@ test('running while heating or in overrun', () => {
 
 test('unknown prefix or unavailable device', () => {
   assert.equal(hm.read(fakeHa.states(), 'heatbooster_nope').available, false);
-  const states = fakeHa.states().map((s) => (s.entity_id.includes('keuken') ? { ...s, state: 'unavailable' } : s));
-  assert.equal(hm.read(states, 'heatbooster_keuken').available, false);
+  const states = fakeHa.states().map((s) => (s.entity_id.includes('woonkamer_gang') ? { ...s, state: 'unavailable' } : s));
+  assert.equal(hm.read(states, 'heatbooster_woonkamer_gang').available, false);
 });
 
 test('newer "heatmeister_" names work too', () => {
@@ -59,4 +59,17 @@ test('newer "heatmeister_" names work too', () => {
   const [d] = hm.discover(states);
   assert.equal(d.name, 'Zolder');
   assert.equal(hm.read(states, 'heatmeister_zolder').running, true);
+});
+
+test('the default MQTT topic is "<Name>/temp-ambient-ext", like the Node-RED flow', () => {
+  assert.equal(hm.defaultTopic('Woonkamer-garage'), 'Woonkamer-garage/temp-ambient-ext');
+});
+
+test('send the room temperature on a change of 0.1 °C, or every few minutes', () => {
+  const now = 1_800_000_000_000;
+  assert.equal(hm.shouldPublish({ value: 21.4, last: undefined, now, intervalMinutes: 5 }), true);
+  assert.equal(hm.shouldPublish({ value: 21.45, last: { value: 21.4, at: now - 60000 }, now, intervalMinutes: 5 }), false);
+  assert.equal(hm.shouldPublish({ value: 21.5, last: { value: 21.4, at: now - 60000 }, now, intervalMinutes: 5 }), true);
+  assert.equal(hm.shouldPublish({ value: 21.4, last: { value: 21.4, at: now - 5 * 60000 }, now, intervalMinutes: 5 }), true);
+  assert.equal(hm.shouldPublish({ value: null, last: undefined, now, intervalMinutes: 5 }), false);
 });

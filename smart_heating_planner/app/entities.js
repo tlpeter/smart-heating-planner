@@ -23,6 +23,7 @@ function detect(states, entities = []) {
 
   const thermostats = [];
   const persons = [];
+  const temperatures = [];
   for (const st of states || []) {
     const id = st.entity_id;
     const domain = id.split('.')[0];
@@ -36,6 +37,12 @@ function detect(states, entities = []) {
         cloud: platform ? TADO_CLOUD.has(platform) : false,
         local: platform === 'homekit_controller',
       });
+    } else if (domain === 'sensor') {
+      const a = st.attributes || {};
+      // Room temperature sensors (not the HeatMeisters' own water and room sensors).
+      if ((a.device_class === 'temperature' || a.unit_of_measurement === '°C') && !/heat_?(booster|meister)_/.test(id)) {
+        temperatures.push({ entity_id: id, name: friendly(st), state: st.state });
+      }
     } else if (domain === 'person') {
       const list = Array.isArray(st.attributes && st.attributes.device_trackers) ? st.attributes.device_trackers : [];
       persons.push({
@@ -55,7 +62,8 @@ function detect(states, entities = []) {
   return {
     thermostats,
     persons: persons.sort(byEntity),
-    heatmeisters: heatmeister.discover(states).map((d) => ({ prefix: d.prefix, name: d.name, entities: Object.keys(d.entities).length })),
+    heatmeisters: heatmeister.discover(states).map((d) => ({ prefix: d.prefix, name: d.name, topic: heatmeister.defaultTopic(d.name), entities: Object.keys(d.entities).length })),
+    temperatures: temperatures.sort(byEntity),
     homeZone: byId.has('zone.home'),
   };
 }

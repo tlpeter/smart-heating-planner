@@ -31,12 +31,52 @@ if (!options.allow_control) memory.lastSent = null;
 
 let status = { ready: false, message: 'Starting…' };
 let lastControl = null; // { at, sent, why, error }
+let lastMqtt = null; // { at, sent, error }
 let timer = null;
 let busy = false;
 
 function num(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+// The room temperature for the HeatMeisters: the chosen sensor, or the
+// thermostat's own room temperature.
+function roomTemperature(states, s, thermostat) {
+  if (s.room_temperature_source) {
+    const st = (states || []).find((x) => x.entity_id === s.room_temperature_source);
+    return st ? num(st.state) : null;
+  }
+  return thermostat && thermostat.available ? thermostat.current : null;
+}
+
+// With "Send room temperature to HeatMeisters" on: send it to each topic
+// when it changed, and every few minutes.
+async function sendRoomTemperature(st, now) {
+  const s = settings.get();
+  memory.mqtt = memory.mqtt || {};
+  const value = st.roomTemperature.value;
+  const topics = s.heatmeisters.map((h) => h.topic).filter(Boolean);
+  let sent = 0;
+  for (const topic of topics) {
+    if (!heatmeister.shouldPublish({ value, last: memory.mqtt[topic], now, intervalMinutes: s.room_temperature_interval })) continue;
+    try {
+      await ha.publishRoomTemperature(topic, value, topics);
+      memory.mqtt[topic] = { value, at: now };
+      sent++;
+      lastMqtt = { at: now, sent: true };
+    } catch (err) {
+      ha.warn('Sending the room temperature failed:', topic, err.message);
+      lastMqtt = { at: now, sent: false, error: err.message };
+      break; // MQTT is down: try again next refresh
+    }
+  }
+  // Forget topics that are no longer used.
+  for (const t of Object.keys(memory.mqtt)) if (!topics.includes(t)) delete memory.mqtt[t];
+  if (sent || lastMqtt) writeJsonAtomic(MEMORY_FILE, memory);
+  st.roomTemperature.last = lastMqtt;
+  st.heatmeisters = st.heatmeisters.map((h) => ({ ...h, sent: memory.mqtt[h.topic] || null }));
+  return st;
 }
 
 function thermostatFrom(states, id) {
@@ -72,11 +112,19 @@ function evaluate(states, now = Date.now()) {
 
   // Without persons that count there is no presence: follow the schedule.
   const noPersons = !s.persons.some((p) => p.counts);
-  const pres = { effectiveHome: noPersons || delay.effectiveHome, waitingUntil: delay.waitingUntil, approaching: way.approaching };
+  // Option "only when someone is home" off: always the schedule.
+  const ignored = s.schedule_needs_presence === false;
+  const pres = { effectiveHome: noPersons || ignored || delay.effectiveHome, waitingUntil: ignored ? null : delay.waitingUntil, approaching: way.approaching, ignored };
   const advice = decideTarget({ now, timeZone: tz, point, presence: pres, hold, settings: s, thermostat });
 
   const demand = heatDemand(thermostat);
-  const heatmeisters = s.heatmeisters.map((h) => ({ ...heatmeister.read(states, h.prefix), name: h.name }));
+  const roomTemp = roomTemperature(states, s, thermostat);
+  const heatmeisters = s.heatmeisters.map((h) => ({
+    ...heatmeister.read(states, h.prefix),
+    name: h.name,
+    topic: h.topic,
+    sent: (memory.mqtt || {})[h.topic] || null,
+  }));
 
   // One activity line when the advice changes.
   const key = JSON.stringify([advice.target, advice.source]);
@@ -106,6 +154,12 @@ function evaluate(states, now = Date.now()) {
     hold,
     demand,
     heatmeisters,
+    roomTemperature: {
+      allowed: options.allow_heatmeister_temperature,
+      value: roomTemp,
+      source: s.room_temperature_source || 'thermostat',
+      last: lastMqtt,
+    },
     control: {
       allowed: options.allow_control,
       last: lastControl,
@@ -172,6 +226,7 @@ async function refresh() {
     const now = Date.now();
     let st = evaluate(states, now);
     if (options.allow_control && settings.get().thermostat) st = await act(states, st, now);
+    if (options.allow_heatmeister_temperature && settings.get().heatmeisters.length) st = await sendRoomTemperature(st, now);
     status = st;
   } catch (err) {
     ha.warn('Refresh failed:', err.message);

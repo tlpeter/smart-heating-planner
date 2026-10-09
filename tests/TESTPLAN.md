@@ -8,17 +8,18 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 
 | Test | Passed |
 |---|---|
-| Settings and situations | 20 of 20 ✓ |
+| Settings and situations | 22 of 22 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
+| HeatMeister room temperature (MQTT on) | 7 of 7 ✓ |
 | Week schedule | 10 of 10 ✓ |
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
-| HeatMeisters | not run |
+| HeatMeisters | 8 of 8 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.3.0.
+Version: 0.4.0.
 
 ## Settings and situations
 
@@ -37,6 +38,7 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 - ✓ coming home off for a person: their approach is ignored
 - ✓ Bluetooth does not count: a watch at home does not make Peter home
 - ✓ a person who does not count: home, but the house still counts as empty
+- ✓ option "schedule only when someone is home" off: always the schedule
 - ✓ preheat switch point: heat even when nobody is home
 - ✓ location unknown counts as home
 - ✓ manual hold: wins, then ends
@@ -45,6 +47,7 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 - ✓ activity: one line per change, never "sent"
 - ✓ diagnostics: download without names of persons
 - ✓ large or broken requests are refused
+- ✓ room temperature for the HeatMeisters is shown, but not sent while its option is off
 - ✓ SAFETY: with "Allow control" off the app only sent read-only commands
 
 ## Control (Allow control on)
@@ -63,6 +66,20 @@ The real app with "Allow control" on: sets the HomeKit thermostat only when the 
 - ✓ a failing thermostat: logged, not hammered
 - ✓ the daily limit stops further writes
 - ✓ SAFETY: only climate.set_temperature, only on the chosen thermostat
+
+## HeatMeister room temperature (MQTT on)
+
+The real app with "Send room temperature to HeatMeisters" on: like the Node-RED flow, the room temperature goes to "<Name>/temp-ambient-ext" for each chosen HeatMeister, on a change and every few minutes; only mqtt.publish to those topics.
+
+`node tests/heatmeister-app.test.js`
+
+- ✓ nothing is sent before HeatMeisters are chosen
+- ✓ the thermostat room temperature goes to every chosen HeatMeister
+- ✓ no new message while the temperature stays the same
+- ✓ a change of 0.1 °C or more is sent right away
+- ✓ another room temperature sensor can be the source
+- ✓ MQTT down: shown as an error, tried again later
+- ✓ SAFETY: only mqtt.publish, only to the chosen topics, never the thermostat
 
 ## Week schedule
 
@@ -139,7 +156,14 @@ Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_
 
 `node tests/heatmeister.test.js`
 
-Not run.
+- ✓ the three HeatMeisters are found, with readable names
+- ✓ all known parts are recognised, and similar names are not mixed up
+- ✓ reading one: temperatures, fan, room control
+- ✓ running while heating or in overrun
+- ✓ unknown prefix or unavailable device
+- ✓ newer "heatmeister_" names work too
+- ✓ the default MQTT topic is "<Name>/temp-ambient-ext", like the Node-RED flow
+- ✓ send the room temperature on a change of 0.1 °C, or every few minutes
 
 ## Finding entities
 

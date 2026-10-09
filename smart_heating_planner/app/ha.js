@@ -4,10 +4,13 @@
 // Connects through the Supervisor, authenticates, and lets the rest of the app
 // read states and registries.
 //
-// SAFETY: the app mostly READS. The one write is setting the target
-// temperature of the chosen thermostat (climate.set_temperature), and only
-// through setTemperature() below, only when "Allow control" is on in the
-// Configuration tab. Anything else is refused.
+// SAFETY: the app mostly READS. It writes only two things, each through its
+// own function and behind its own option in the Configuration tab:
+// - the target temperature of the chosen thermostat (climate.set_temperature,
+//   setTemperature(), "Allow control");
+// - the room temperature for the HeatMeisters (mqtt.publish to the topics set
+//   in Settings, publishRoomTemperature(), "Send room temperature to
+//   HeatMeisters"). Anything else is refused.
 
 const WebSocket = require('ws');
 const { options } = require('./options');
@@ -55,6 +58,7 @@ const READ_ONLY_COMMANDS = new Set([
 ]);
 
 const CONTROL_TOKEN = Symbol('thermostat control');
+const MQTT_TOKEN = Symbol('heatmeister room temperature');
 
 // Send a command to Home Assistant and wait for its result.
 function call(message, timeoutMs = 20000, token = null) {
@@ -62,7 +66,10 @@ function call(message, timeoutMs = 20000, token = null) {
     const allowed = READ_ONLY_COMMANDS.has(message.type) ||
       // The only write: the thermostat's target, through setTemperature().
       (message.type === 'call_service' && token === CONTROL_TOKEN && options.allow_control === true &&
-        message.domain === 'climate' && message.service === 'set_temperature');
+        message.domain === 'climate' && message.service === 'set_temperature') ||
+      // The room temperature for the HeatMeisters, through publishRoomTemperature().
+      (message.type === 'call_service' && token === MQTT_TOKEN && options.allow_heatmeister_temperature === true &&
+        message.domain === 'mqtt' && message.service === 'publish');
     if (!allowed) {
       warn('Refused command', message.type, message.domain ? `${message.domain}.${message.service}` : '', '- not allowed');
       reject(new Error(`Command ${message.type} is not allowed`));
@@ -105,6 +112,32 @@ async function setTemperature(entityId, temperature, chosen) {
     service_data: { temperature: t },
     target: { entity_id: entityId },
   }, 20000, CONTROL_TOKEN);
+}
+
+// A safe MQTT topic: letters, digits, - _ . / and spaces; no wildcards.
+const TOPIC = /^[A-Za-z0-9_\-./ ]{1,100}$/;
+
+// Send the room temperature to one HeatMeister over MQTT (through Home
+// Assistant's MQTT integration). Refused unless "Send room temperature to
+// HeatMeisters" is on, and only to a topic chosen in Settings.
+async function publishRoomTemperature(topic, temperature, allowedTopics) {
+  if (options.allow_heatmeister_temperature !== true) {
+    warn('Refused mqtt.publish - "Send room temperature to HeatMeisters" is off');
+    throw new Error('Sending the room temperature to the HeatMeisters is off in the Configuration tab');
+  }
+  if (!TOPIC.test(String(topic)) || /[#+]/.test(topic) || !(allowedTopics || []).includes(topic)) {
+    warn('Refused mqtt.publish to', topic, '- not a topic chosen in Settings');
+    throw new Error(`${topic} is not a HeatMeister topic chosen in Settings`);
+  }
+  const t = Number(temperature);
+  if (!Number.isFinite(t) || t < -20 || t > 50) throw new Error(`${temperature} is not a room temperature`);
+  debug('MQTT', topic, t);
+  return call({
+    type: 'call_service',
+    domain: 'mqtt',
+    service: 'publish',
+    service_data: { topic, payload: String(Math.round(t * 100) / 100), qos: 0, retain: false },
+  }, 20000, MQTT_TOKEN);
 }
 
 function onConnect(fn) {
@@ -169,4 +202,4 @@ function connect() {
   });
 }
 
-module.exports = { state, call, setTemperature, onConnect, connect, recentLog, log, debug, warn, READ_ONLY_COMMANDS };
+module.exports = { state, call, setTemperature, publishRoomTemperature, onConnect, connect, recentLog, log, debug, warn, READ_ONLY_COMMANDS };

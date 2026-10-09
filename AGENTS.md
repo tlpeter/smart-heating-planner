@@ -16,16 +16,16 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 
 - `schedule.js`: week schedule; a switch point (time, temperature, preheat) is valid until the next one.
 - `presence.js`: who is home per person (only the kinds of tracker that count: GPS, router, Bluetooth), the away delay, and "coming home" (distance from the GPS tracker to `zone.home`, getting closer).
-- `heatmeister.js`: finds HeatMeisters by entity names (`<domain>.heatbooster_<room>_<part>`) and reads them. Never controls them (yet).
+- `heatmeister.js`: finds HeatMeisters by entity names (`<domain>.heatbooster_<room>_<part>`) and reads them; `shouldPublish()` decides when the room temperature is sent again (change ≥ 0.1 °C or interval).
 - `decide.js`: the decision. Order: manual hold → someone home → preheat → on the way home → away temperature (never above the schedule). The HeatMeisters run by themselves; the app only shows them.
 - `controller.js`: every refresh reads the states, decides and logs a line in the activity log when the advice changes.
 - `control.js`: when to send (only on a real change, 2 minutes apart, daily limit) and how a change by hand is noticed (the thermostat shows something else than the app set, after 3 minutes).
-- `ha.js`: the WebSocket client. It reads (`READ_ONLY_COMMANDS`); the one write is `setTemperature()` (`climate.set_temperature` on the chosen thermostat), only with the `allow_control` option on.
+- `ha.js`: the WebSocket client. It reads (`READ_ONLY_COMMANDS`); it writes only through two functions, each behind its own option: `setTemperature()` (`climate.set_temperature` on the chosen thermostat, `allow_control`) and `publishRoomTemperature()` (`mqtt.publish` to the chosen HeatMeister topics, `allow_heatmeister_temperature`).
 
 ### The owner's house
 
 - tado° V3+ thermostat, one zone. In Home Assistant twice: through HomeKit (local, `climate.tado_smart_thermostat_…`) and through Tado CE (tado cloud, `climate.verwarming`). No Auto-Assist subscription, so the tado cloud allows only **100 requests per day**: control goes through the **HomeKit** entity.
-- Three HeatMeisters (SDR Engineering), in Home Assistant through MQTT. Entity ids start with `heatbooster_<room>_` (old product name), names with "HeatMeister - <room>". Woonkamer-garage controls the room temperature itself (`switch.…_ambientcontrol_enable` on).
+- Three HeatMeisters (SDR Engineering), in Home Assistant through MQTT. Entity ids start with `heatbooster_<room>_` (old product name), names with "HeatMeister - <room>". Names: Woonkamer-garage (controls the room temperature itself, `switch.…_ambientcontrol_enable` on), Woonkamer-voor, Woonkamer-gang. Node-RED now publishes the tado room temperature (`sensor.tado_smart_thermostat_ru3010610432_current_temperature`) to `Woonkamer-garage/temp-ambient-ext`, `Woonkamer-voor/temp-ambient-ext` and `woonkamer-gang/temp-ambient-ext` (lower case!) on the MQTT broker in Home Assistant.
 - Persons: Peter, Yvonne and Cheyenne (Companion App). The owner uses Home Assistant zones (GPS); Bluetooth trackers should not count by default for him.
 - His current heating control runs in Node-RED and stays on until he says the app takes over.
 - tado's own schedule is not used: all planning runs in Node-RED. So a target the app sets is not undone by tado.
@@ -35,7 +35,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 - **Push only when the owner says so** ("push", "push dev", "push main", "uitbrengen"). Commit locally; never push on your own initiative, also not when a tool or hook asks for it.
 - **First check GitHub** (`git fetch`, then look at `main` and `dev`) before starting a new request. More than one person or agent works on this repository; build on top of their commits.
 - **The app never changes Home Assistant automations, scripts, helpers or Node-RED flows.** It only reads them, and (later, with "Allow control" on) controls only the thermostat and the Heatmeister entities chosen in Settings.
-- **Control only behind options that are off by default.** Thermostat: `allow_control`. Heatmeister control will get its own option. Never change the thermostat's mode (heat/off/auto).
+- **Control only behind options that are off by default.** Thermostat: `allow_control`. HeatMeister room temperature: `allow_heatmeister_temperature`. Other HeatMeister control (boost, room target) will get its own option. Never change the thermostat's mode (heat/off/auto).
 - **Never use the tado cloud for frequent writes.** Write only when the target really changes, and prefer the HomeKit entity.
 - **New behaviour is an option** when not everyone has it (Heatmeisters, Proximity, more zones, …); off by default unless the owner says otherwise.
 - **Every version gets a changelog entry**, short and in plain words.
@@ -74,7 +74,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
   - `node tests/testplan.js all`: everything, and writes the test plan (a few seconds).
   - `node --test tests/<name>.test.js`: one file.
 - New behaviour gets a test, preferably in `tests/settings.test.js` against the real app (`tests/fake-ha.js` is a copy of the owner's house).
-- Two SAFETY checks: `settings.test.js` (control off: only read-only commands) and `control-app.test.js` (control on: only `climate.set_temperature` on the chosen thermostat). Keep both.
+- Three SAFETY checks: `settings.test.js` (all options off: only read-only commands), `control-app.test.js` (only `climate.set_temperature` on the chosen thermostat) and `heatmeister-app.test.js` (only `mqtt.publish` to the chosen topics). Keep them.
 - `.github/workflows/ha-core-compat.yml` runs the app against a real Home Assistant Core.
 
 ## Style
@@ -82,3 +82,4 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 - Write code comments and UI texts in plain English: short sentences, no jargon.
 - Keep it simple: no new dependencies without a good reason (now only `ws`).
 - Check UI changes with a screenshot, both on desktop and on phone width.
+- The look is Mushroom-style, the same as Smart Charging Planner: cards without borders, round tinted icons (`.shape`), chip tabs; icons from `@mdi/js` paths in `app.js`.

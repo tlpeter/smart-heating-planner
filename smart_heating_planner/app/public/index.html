@@ -7,57 +7,55 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="top">
-    <div class="brand">
-      <span class="logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7.95 3L6.53 4.4c.81.81.81 2.09 0 2.9l-.33.33l1.41 1.41l.33-.33C9.5 7.17 9.5 4.6 7.95 3m4 0l-1.42 1.4c.81.81.81 2.09 0 2.9l-.33.33l1.41 1.41l.33-.33C13.5 7.17 13.5 4.6 11.95 3m4.05 0l-1.41 1.4c.8.81.8 2.09 0 2.9l-.33.33l1.41 1.41l.33-.33C17.5 7.17 17.5 4.6 16 3M4 10v8H2v2h20v-2h-2v-8zm2 2h2v6H6zm4 0h2v6h-2zm4 0h2v6h-2z"/></svg>
-      </span>
-      <span>Smart Heating</span>
-      <span id="version" class="muted small"></span>
-    </div>
-    <nav class="tabs" role="tablist">
-      <button class="tab active" data-page="home" role="tab">Home</button>
-      <button class="tab" data-page="schedule" role="tab">Schedule</button>
-      <button class="tab" data-page="activity" role="tab">Activity</button>
-      <button class="tab" data-page="settings" role="tab">Settings</button>
-    </nav>
-  </header>
-
-  <div id="banner" class="banner">Watch only: the app shows what it <em>would</em> do and sends nothing to the thermostat.</div>
-  <div id="banner-control" class="banner control hidden">Control is on: the app sets the thermostat's target temperature. The HeatMeisters run by themselves.</div>
-  <div id="error" class="error hidden"></div>
-
   <main>
+    <header class="top">
+      <h1><span class="shape c-orange" data-icon="radiator"></span><span>Smart Heating</span> <span id="version" class="muted small"></span></h1>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-page="home" role="tab"><i data-icon="home"></i><span>Home</span></button>
+        <button class="tab" data-page="schedule" role="tab"><i data-icon="schedule"></i><span>Schedule</span></button>
+        <button class="tab" data-page="activity" role="tab"><i data-icon="activity"></i><span>Activity</span></button>
+        <button class="tab" data-page="settings" role="tab"><i data-icon="settings"></i><span>Settings</span></button>
+      </nav>
+    </header>
+
+    <div id="banner" class="note mode"><span class="shape sm c-blue" data-icon="eye"></span><span>Watch only: the app shows what it <em>would</em> do and sends nothing to the thermostat.</span></div>
+    <div id="banner-control" class="note mode hidden"><span class="shape sm c-green" data-icon="check"></span><span>Control is on: the app sets the thermostat's target temperature.</span></div>
+    <div id="error" class="note error hidden"></div>
+
     <!-- HOME -->
     <section id="page-home" class="page">
       <div id="setup-hint" class="card hint hidden">
-        Start in <a href="#" data-goto="settings">Settings</a>: choose the thermostat and the persons that count for "home".
+        <div class="entity"><span class="shape c-amber" data-icon="alert"></span>
+          <div class="txt"><div class="primary">Start in Settings</div><div class="secondary">Choose the thermostat and who counts for "home". <a href="#" data-goto="settings">Open Settings</a></div></div>
+        </div>
       </div>
 
       <div class="card advice">
-        <div class="advice-main">
-          <div class="label">Advice now</div>
-          <div class="big"><span id="adv-target">–</span><span class="unit">°C</span></div>
-          <div id="adv-reason" class="reason">Waiting for Home Assistant…</div>
+        <div class="entity">
+          <span id="adv-shape" class="shape lg c-orange" data-icon="thermostat"></span>
+          <div class="txt">
+            <div class="label">Advice now</div>
+            <div class="big"><span id="adv-target">–</span><span class="unit">°C</span></div>
+            <div id="adv-reason" class="secondary">Waiting for Home Assistant…</div>
+          </div>
         </div>
-        <div class="advice-side">
-          <div class="label">Thermostat</div>
-          <div class="row"><span>Room</span><b id="th-current">–</b></div>
-          <div class="row"><span>Set to</span><b id="th-target">–</b></div>
-          <div class="row"><span>Heating</span><b id="th-action">–</b></div>
-          <div id="adv-change" class="pill hidden"></div>
-          <p id="ctl-last" class="muted small hidden"></p>
+        <div class="tiles">
+          <div class="tile"><span>Room</span><b id="th-current">–</b></div>
+          <div class="tile"><span>Set to</span><b id="th-target">–</b></div>
+          <div class="tile"><span>Heating</span><b id="th-action">–</b></div>
         </div>
+        <div id="adv-change" class="pill hidden"></div>
+        <p id="ctl-last" class="muted small hidden"></p>
       </div>
 
       <div class="grid">
         <div class="card">
-          <h2>Who is home</h2>
+          <h2><span class="shape sm c-green" data-icon="people"></span>Who is home</h2>
           <ul id="persons" class="chips"></ul>
           <p id="presence-note" class="muted small"></p>
         </div>
         <div class="card">
-          <h2>Schedule</h2>
+          <h2><span class="shape sm c-blue" data-icon="schedule"></span>Schedule</h2>
           <div class="row"><span>Now (since <span id="sch-since">–</span>)</span><b id="sch-now">–</b></div>
           <div class="row"><span>Next at <span id="sch-next-time">–</span></span><b id="sch-next">–</b></div>
           <p id="sch-in" class="muted small"></p>
@@ -65,7 +63,7 @@
       </div>
 
       <div class="card">
-        <h2>Manual hold</h2>
+        <h2><span class="shape sm c-amber" data-icon="hand"></span>Manual hold</h2>
         <div id="hold-active" class="hidden">
           <p><span id="hold-what">Holding</span> <b id="hold-temp"></b> until <b id="hold-until"></b></p>
           <button id="hold-end" class="btn">End hold</button>
@@ -87,7 +85,7 @@
       </div>
 
       <div class="card">
-        <h2>HeatMeisters</h2>
+        <h2><span class="shape sm c-purple" data-icon="fan"></span>HeatMeisters</h2>
         <div id="hm-list"></div>
       </div>
     </section>
@@ -95,7 +93,7 @@
     <!-- SCHEDULE -->
     <section id="page-schedule" class="page hidden">
       <div class="card">
-        <h2>Week schedule</h2>
+        <h2><span class="shape sm c-blue" data-icon="schedule"></span>Week schedule</h2>
         <p class="muted small">Each switch point is valid until the next one. <b>Preheat</b>: also heat when nobody is home (for example just before you come home from work).</p>
         <div id="schedule"></div>
         <div class="actions">
@@ -109,7 +107,7 @@
     <!-- ACTIVITY -->
     <section id="page-activity" class="page hidden">
       <div class="card">
-        <h2>Activity</h2>
+        <h2><span class="shape sm c-grey" data-icon="activity"></span>Activity</h2>
         <p class="muted small">One line every time the advice changes, every time the app sets the thermostat ("Sent"), and every time someone changed the thermostat by hand.</p>
         <div class="table-wrap">
           <table>
@@ -124,7 +122,7 @@
     <section id="page-settings" class="page hidden">
       <form id="settings-form">
         <div class="card">
-          <h2>Thermostat</h2>
+          <h2><span class="shape sm c-orange" data-icon="thermostat"></span>Thermostat</h2>
           <label>Thermostat entity
             <select id="s-thermostat"></select>
           </label>
@@ -135,12 +133,13 @@
               <option value="minutes">for the default hold length (below)</option>
             </select>
           </label>
-          <p class="muted small">Only with "Allow control" on (Configuration tab). Turn your other heating control (for example Node-RED) off first: the app would see their changes as changes by hand.</p>
+          <p class="muted small">Only with "Allow control" on (Configuration tab). Turn your other heating control (for example Node-RED) off first: the app would see its changes as changes by hand.</p>
         </div>
 
         <div class="card">
-          <h2>Presence</h2>
-          <p class="muted small">The house is occupied when at least one person who <b>counts</b> is home. A person is home when one of their counted trackers is in the Home zone.</p>
+          <h2><span class="shape sm c-green" data-icon="people"></span>Presence</h2>
+          <label class="switch"><input type="checkbox" id="s-needs-presence"> <span>The schedule only counts when someone is home</span></label>
+          <p class="muted small">Off: the schedule is always followed, whoever is home. On (default): when nobody is home, the away temperature is used.</p>
           <div class="table-wrap">
             <table class="persons">
               <thead><tr><th>Person</th><th>Counts for home</th><th>Coming home</th><th>Trackers</th></tr></thead>
@@ -168,13 +167,28 @@
         </div>
 
         <div class="card">
-          <h2>HeatMeisters</h2>
-          <p class="muted small">Found automatically (MQTT, SDR Engineering). The app shows what they do; they run by themselves on the radiator temperature. Tick the ones to show on the Home page.</p>
-          <div id="s-hms" class="checks"></div>
+          <h2><span class="shape sm c-purple" data-icon="fan"></span>HeatMeisters</h2>
+          <p class="muted small">Found automatically (MQTT, SDR Engineering). Tick the ones to show on the Home page. They run by themselves; the app can give them the room temperature to react to.</p>
+          <div class="table-wrap">
+            <table class="hms">
+              <thead><tr><th>Show</th><th>HeatMeister</th><th>MQTT topic for the room temperature</th></tr></thead>
+              <tbody id="s-hms"></tbody>
+            </table>
+          </div>
+          <h3 class="sub">Room temperature for the HeatMeisters</h3>
+          <div class="grid2">
+            <label>Take the room temperature from
+              <select id="s-room-source"></select>
+            </label>
+            <label>Send it at least every (minutes)
+              <input id="s-room-interval" type="number" min="1" max="60" step="1">
+            </label>
+          </div>
+          <p id="s-room-note" class="muted small"></p>
         </div>
 
         <div class="card">
-          <h2>Manual hold</h2>
+          <h2><span class="shape sm c-amber" data-icon="hand"></span>Manual hold</h2>
           <label>Default length (minutes)
             <input id="s-hold" type="number" min="15" max="1440" step="15">
           </label>

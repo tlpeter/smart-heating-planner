@@ -9,6 +9,7 @@ const { readJson, writeJsonAtomic } = require('./jsonstore');
 const { DATA_DIR } = require('./options');
 const schedule = require('./schedule');
 const { normalisePersons } = require('./presence');
+const { defaultTopic } = require('./heatmeister');
 
 const FILE = path.join(DATA_DIR, 'settings.json');
 const MAX_HEATMEISTERS = 6;
@@ -18,6 +19,8 @@ function defaults() {
   return {
     thermostat: '',
     persons: [],
+    // The schedule only counts when someone is home (off: always the schedule).
+    schedule_needs_presence: true,
     away_temp: 16,
     away_delay_minutes: 10,
     // Which kinds of tracker count for "home" (person entities).
@@ -25,7 +28,10 @@ function defaults() {
     coming_home_km: 10,
     hold_default_minutes: 120,
     manual_change_until: 'next',
-    heatmeisters: [], // [{ prefix, name }]
+    heatmeisters: [], // [{ prefix, name, topic }]
+    // Room temperature for the HeatMeisters (MQTT): '' = the thermostat's.
+    room_temperature_source: '',
+    room_temperature_interval: 5,
     schedule: schedule.defaultSchedule(),
   };
 }
@@ -46,7 +52,7 @@ function load() {
   if (saved.proximity && saved.coming_home_km === undefined && Number(saved.proximity.distance_km) > 0) out.coming_home_km = Number(saved.proximity.distance_km);
   delete out.proximity;
   delete out.heatmeister_rule;
-  out.heatmeisters = (out.heatmeisters || []).filter((h) => h && h.prefix);
+  out.heatmeisters = (out.heatmeisters || []).filter((h) => h && h.prefix).map((h) => ({ ...h, topic: h.topic || defaultTopic(h.name) }));
   return out;
 }
 
@@ -101,6 +107,9 @@ function validate(input) {
       v.persons = list.slice(0, MAX_PERSONS);
     }
   }
+  if ('schedule_needs_presence' in input) v.schedule_needs_presence = input.schedule_needs_presence !== false;
+  if ('room_temperature_source' in input) v.room_temperature_source = entityOrEmpty(input.room_temperature_source, ['sensor'], 'Room temperature source', errors);
+  if ('room_temperature_interval' in input) v.room_temperature_interval = Math.round(num(input.room_temperature_interval, 1, 60, 'Send room temperature every', errors, old.room_temperature_interval));
   if ('away_temp' in input) v.away_temp = schedule.roundTemp(num(input.away_temp, 5, 22, 'Away temperature', errors, old.away_temp));
   if ('away_delay_minutes' in input) v.away_delay_minutes = Math.round(num(input.away_delay_minutes, 0, 120, 'Away delay', errors, old.away_delay_minutes));
   if ('hold_default_minutes' in input) v.hold_default_minutes = Math.round(num(input.hold_default_minutes, 15, 1440, 'Default hold', errors, old.hold_default_minutes));
@@ -125,7 +134,10 @@ function validate(input) {
         if (!/^(heatbooster|heatmeister|heat_meister)_[a-z0-9_]+$/.test(prefix)) { errors.push(`"${prefix}" is not a HeatMeister`); continue; }
         if (seen.has(prefix)) continue;
         seen.add(prefix);
-        v.heatmeisters.push({ prefix, name: String((h && h.name) || prefix).trim().slice(0, 40) });
+        const name = String((h && h.name) || prefix).trim().slice(0, 40);
+        const topic = String((h && h.topic) || defaultTopic(name)).trim();
+        if (!/^[A-Za-z0-9_\-./ ]{1,100}$/.test(topic) || /[#+]/.test(topic)) { errors.push(`${name}: "${topic}" is not a valid MQTT topic (no + or #)`); continue; }
+        v.heatmeisters.push({ prefix, name, topic });
       }
     }
   }

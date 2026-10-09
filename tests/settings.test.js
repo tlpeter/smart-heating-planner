@@ -52,7 +52,7 @@ test('settings are saved', async () => {
     away_temp: 16,
     away_delay_minutes: 0,
     coming_home_km: 10,
-    heatmeisters: [{ prefix: 'heatbooster_woonkamer_garage', name: 'Woonkamer-garage' }, { prefix: 'heatbooster_eetkamer', name: 'Eetkamer' }, { prefix: 'heatbooster_keuken', name: 'Keuken' }],
+    heatmeisters: [{ prefix: 'heatbooster_woonkamer_garage', name: 'Woonkamer-garage' }, { prefix: 'heatbooster_woonkamer_voor', name: 'Woonkamer-voor' }, { prefix: 'heatbooster_woonkamer_gang', name: 'Woonkamer-gang', topic: 'woonkamer-gang/temp-ambient-ext' }],
     schedule: flat(20.5),
   });
   assert.equal(r.status, 200, JSON.stringify(r.data));
@@ -61,6 +61,9 @@ test('settings are saved', async () => {
   const saved = (await req('GET', '/api/settings')).data;
   assert.equal(saved.tracker_types.bluetooth, false);
   assert.equal(saved.persons[0].coming_home, true);
+  assert.equal(saved.heatmeisters[0].topic, 'Woonkamer-garage/temp-ambient-ext', 'default topic from the name');
+  assert.equal(saved.heatmeisters[2].topic, 'woonkamer-gang/temp-ambient-ext', 'own topic kept');
+  assert.equal(saved.schedule_needs_presence, true);
 });
 
 test('wrong settings are refused with a clear message', async () => {
@@ -73,6 +76,9 @@ test('wrong settings are refused with a clear message', async () => {
     { coming_home_km: 0 },
     { tracker_types: { gps: false, router: false, bluetooth: false } },
     { manual_change_until: 'forever' },
+    { heatmeisters: [{ prefix: 'heatbooster_woonkamer_garage', name: 'x', topic: 'Woonkamer-garage/#' }] },
+    { room_temperature_source: 'climate.verwarming' },
+    { room_temperature_interval: 0 },
   ];
   for (const body of cases) {
     const r = await save(body);
@@ -161,6 +167,17 @@ test('a person who does not count: home, but the house still counts as empty', a
   await save({ persons: ['peter', 'yvonne', 'cheyenne'].map((n) => ({ entity_id: `person.${n}`, counts: true, coming_home: true })) });
 });
 
+test('option "schedule only when someone is home" off: always the schedule', async () => {
+  let s = await refreshed();
+  assert.equal(s.advice.source, 'away');
+  await save({ schedule_needs_presence: false });
+  s = await status();
+  assert.equal(s.advice.source, 'schedule');
+  assert.match(s.advice.reason, /presence is not used/);
+  await save({ schedule_needs_presence: true });
+  assert.equal((await status()).advice.source, 'away');
+});
+
 test('preheat switch point: heat even when nobody is home', async () => {
   await save({ schedule: flat(21, true) });
   const s = await status();
@@ -207,7 +224,7 @@ test('HeatMeisters: their own state is shown, nothing is sent to them', async ()
   assert.equal(wg.fan_speed, 55);
   assert.equal(wg.inlet, 48.5);
   assert.equal(wg.room_control, true);
-  assert.equal(s.heatmeisters.find((h) => h.prefix === 'heatbooster_keuken').running, false);
+  assert.equal(s.heatmeisters.find((h) => h.prefix === 'heatbooster_woonkamer_gang').running, false);
   fakeHa.world.hvacAction = 'idle';
 });
 
@@ -242,6 +259,13 @@ test('large or broken requests are refused', async () => {
   const broken = await fetch(`${BASE}/api/settings`, { method: 'POST', body: '{nope' });
   assert.equal(broken.status, 400);
   assert.equal((await req('GET', '/api/nope')).status, 404);
+});
+
+test('room temperature for the HeatMeisters is shown, but not sent while its option is off', async () => {
+  const s = await refreshed();
+  assert.equal(s.roomTemperature.allowed, false);
+  assert.equal(s.roomTemperature.value, 19.4);
+  assert.deepEqual(fakeHa.world.mqtt, {});
 });
 
 test('SAFETY: with "Allow control" off the app only sent read-only commands', () => {

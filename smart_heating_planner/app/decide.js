@@ -22,7 +22,7 @@ function fmtTime(ms, timeZone) {
 
 // input: { now, timeZone, point, presence, hold, settings, thermostat }
 //   point:      result of schedule.current() or null
-//   presence:   { effectiveHome, waitingUntil, approaching }
+//   presence:   { effectiveHome, waitingUntil, approaching, ignored }
 //   hold:       { temp, until } or null
 //   thermostat: { available, target, current, hvac_action }
 // Returns { target, source, reason, change }.
@@ -46,9 +46,11 @@ function decideTarget(input) {
   } else if (presence.effectiveHome) {
     target = point.current.temp;
     source = 'schedule';
-    reason = presence.waitingUntil
-      ? `Nobody home, waiting until ${fmtTime(presence.waitingUntil, timeZone)} before lowering`
-      : `Someone is home: schedule from ${point.current.time}`;
+    reason = presence.ignored
+      ? `Schedule from ${point.current.time} (presence is not used)`
+      : presence.waitingUntil
+        ? `Nobody home, waiting until ${fmtTime(presence.waitingUntil, timeZone)} before lowering`
+        : `Someone is home: schedule from ${point.current.time}`;
   } else if (point.current.preheat) {
     target = point.current.temp;
     source = 'preheat';

@@ -7,8 +7,10 @@
 // - three persons (Peter, Yvonne, Cheyenne), each with a Companion App GPS
 //   tracker and a router tracker; Peter also has a Bluetooth tracker;
 // - three HeatMeisters through MQTT with the real entity names
-//   (heatbooster_<room>_...). "Woonkamer-garage" is the owner's real one and
-//   controls the room temperature; the other two names are made up.
+//   (heatbooster_<room>_...): Woonkamer-garage (controls the room
+//   temperature itself), Woonkamer-voor and Woonkamer-gang. Their outside
+//   room temperature comes over MQTT (topic "<Name>/temp-ambient-ext");
+//   mqtt.publish is recorded in world.mqtt.
 // Change `world` to change the house. Every command the app sends is
 // recorded in `calls`; the tests check what was written.
 // climate.set_temperature changes world.target (both thermostat entities
@@ -28,6 +30,8 @@ function freshWorld() {
     hvacAction: 'idle',
     homekitAvailable: true,
     failWrites: false,
+    failMqtt: false,
+    mqtt: {}, // topic -> [payloads] sent by the app
     // Where each person's GPS tracker is: 'home', 'not_home', a zone name or 'unknown'.
     persons: { peter: 'home', yvonne: 'not_home', cheyenne: 'not_home' },
     // GPS position per person (lat, lon); missing = at home when home, else 30 km away.
@@ -37,8 +41,8 @@ function freshWorld() {
     bluetooth: {},
     hm: [
       { id: 'woonkamer_garage', name: 'Woonkamer-garage', state: 'idle', inlet: 21.63, outlet: 21.04, room: 20.33, fan: 0, roomControl: true, roomTarget: 19 },
-      { id: 'eetkamer', name: 'Eetkamer', state: 'idle', inlet: 21.2, outlet: 20.9, room: 20.1, fan: 0, roomControl: false, roomTarget: 20 },
-      { id: 'keuken', name: 'Keuken', state: 'idle', inlet: 21.0, outlet: 20.7, room: 20.2, fan: 0, roomControl: false, roomTarget: 20 },
+      { id: 'woonkamer_voor', name: 'Woonkamer-voor', state: 'idle', inlet: 21.2, outlet: 20.9, room: 20.1, fan: 0, roomControl: false, roomTarget: 20 },
+      { id: 'woonkamer_gang', name: 'Woonkamer-gang', state: 'idle', inlet: 21.0, outlet: 20.7, room: 20.2, fan: 0, roomControl: false, roomTarget: 20 },
     ],
   };
 }
@@ -112,6 +116,7 @@ function states() {
     ...personStates('peter', 'Peter', w),
     ...personStates('yvonne', 'Yvonne', w),
     ...personStates('cheyenne', 'Cheyenne', w),
+    ['sensor.tado_smart_thermostat_ru3010610432_current_temperature', String(w.room), { friendly_name: 'tado Smart Thermostat RU3010610432 Current Temperature', unit_of_measurement: '°C', device_class: 'temperature' }],
     ['sensor.woonkamer_temp_hum_temperature', String(w.room), { friendly_name: 'Woonkamer_temp_hum Temperature', unit_of_measurement: '°C', device_class: 'temperature' }],
     ['fan.p1s_aux_fan', 'unavailable', { friendly_name: 'p1s_aux_fan' }],
     ['zone.home', '1', { friendly_name: 'Home', latitude: HOME.lat, longitude: HOME.lon, radius: 100 }],
@@ -157,6 +162,11 @@ function start(port = 0) {
         if (msg.type === 'call_service' && msg.domain === 'climate' && msg.service === 'set_temperature') {
           if (world.failWrites) return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'home_assistant_error', message: 'Thermostat did not answer' } }));
           world.target = Number(msg.service_data.temperature);
+          return ok({ context: { id: 'x' } });
+        }
+        if (msg.type === 'call_service' && msg.domain === 'mqtt' && msg.service === 'publish') {
+          if (world.failMqtt) return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'home_assistant_error', message: 'MQTT is not connected' } }));
+          (world.mqtt[msg.service_data.topic] = world.mqtt[msg.service_data.topic] || []).push(msg.service_data.payload);
           return ok({ context: { id: 'x' } });
         }
         return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'unknown_command', message: 'Unknown command.' } }));
