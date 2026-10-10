@@ -10,16 +10,17 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 |---|---|
 | Settings and situations | 25 of 25 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
-| HeatMeister temperature (MQTT on) | 9 of 9 ✓ |
+| HeatMeister temperature (MQTT on) | 10 of 10 ✓ |
+| HeatMeister room target (option on) | 7 of 7 ✓ |
 | Week schedule | 10 of 10 ✓ |
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
-| HeatMeisters | 16 of 16 ✓ |
+| HeatMeisters | 18 of 18 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.4.6.
+Version: 0.4.7.
 
 ## Settings and situations
 
@@ -50,7 +51,7 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 - ✓ large or broken requests are refused
 - ✓ live: a change of a HeatMeister fan shows without waiting for the timer
 - ✓ live: saving other HeatMeisters asks for live updates of the new list
-- ✓ the temperature for the HeatMeisters (setpoint) is shown, but not sent while its option is off
+- ✓ the temperature for the HeatMeisters (by default the room temperature) is shown, but not sent while its option is off
 - ✓ SAFETY: with "Allow control" off the app only sent read-only commands
 
 ## Control (Allow control on)
@@ -72,12 +73,13 @@ The real app with "Allow control" on: sets the HomeKit thermostat only when the 
 
 ## HeatMeister temperature (MQTT on)
 
-The real app with "Send temperature to HeatMeisters" on: like the Node-RED flow, the thermostat setpoint goes to "<Name>/temp-ambient-ext" for each chosen HeatMeister when it changes (or a room temperature, if chosen); only mqtt.publish to those topics.
+The real app with "Send temperature to HeatMeisters" on: like the Node-RED flow, a room temperature (or the thermostat setpoint, if chosen) goes to "<Name>/temp-ambient-ext" for each chosen HeatMeister; only mqtt.publish to those topics.
 
 `node tests/heatmeister-app.test.js`
 
 - ✓ nothing is sent before HeatMeisters are chosen
-- ✓ by default the thermostat setpoint goes to every chosen HeatMeister
+- ✓ by default the thermostat room temperature goes to every chosen HeatMeister (like the Node-RED flow)
+- ✓ "the thermostat setpoint" (if chosen) goes to every chosen HeatMeister
 - ✓ no new message while the setpoint stays the same (the room temperature does not matter)
 - ✓ a new setpoint is sent right away (like the Node-RED flow)
 - ✓ "a room temperature": the thermostat room temperature, also on a new setpoint
@@ -85,6 +87,20 @@ The real app with "Send temperature to HeatMeisters" on: like the Node-RED flow,
 - ✓ MQTT down: shown as an error, tried again later
 - ✓ sent again by itself every N seconds, like the Node-RED flow (every 15 s)
 - ✓ SAFETY: only mqtt.publish, only to the chosen topics, never the thermostat
+
+## HeatMeister room target (option on)
+
+The real app with "Set HeatMeister room target" on: like the Node-RED flow, the room target of each chosen HeatMeister (number ..._ambientcontrol_temp) follows the thermostat setpoint, within its limits; only number.set_value on those entities.
+
+`node tests/heatmeister-target-app.test.js`
+
+- ✓ nothing is set before HeatMeisters are chosen
+- ✓ every chosen HeatMeister gets the thermostat setpoint as room target (Woonkamer-voor through its "_2" id)
+- ✓ nothing is sent again while the target is right
+- ✓ a new setpoint (also from the tado app) goes to the HeatMeisters by itself, without a refresh from the page
+- ✓ a setpoint below the HeatMeister minimum (14 °C) gives its minimum
+- ✓ a failing HeatMeister is shown and tried again at the next refresh
+- ✓ SAFETY: only number.set_value, only on the room targets of the chosen HeatMeisters
 
 ## Week schedule
 
@@ -177,6 +193,8 @@ Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_
 - ✓ a new thermostat setpoint sends right away, also when the room temperature is the same
 - ✓ fan step: every 10 % of fan speed is one step (the icon turns faster per step)
 - ✓ entity ids of one HeatMeister: also the "_2" ones, not the WiFi values
+- ✓ room target: the setpoint, within the HeatMeister limits and steps, only when it differs
+- ✓ room target entity: the working one ("_2" for Woonkamer-voor), with its limits
 
 ## Finding entities
 
