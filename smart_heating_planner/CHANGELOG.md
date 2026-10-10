@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.11-dev
+
+- Chart: up to **6** extra temperature sensors (was 3). Click a name above the chart to show or hide that line; your browser remembers it. Of new sensors the first 3 are shown.
+
 ## 0.4.10-dev
 
 - Chart: the value of now is always at the right edge, also when Home Assistant has not written it to its history yet.

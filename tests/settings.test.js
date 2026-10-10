@@ -341,9 +341,10 @@ test('chart: the thermostat room temperature and setpoint of the last 24 hours, 
   assert.deepEqual(call.entity_ids, ['climate.tado_smart_thermostat_ru3010610432']);
 });
 
-test('chart: up to 3 extra temperature sensors, chosen in Settings', async () => {
+test('chart: up to 6 extra temperature sensors, chosen in Settings', async () => {
   assert.equal((await save({ chart_sensors: ['climate.verwarming'] })).status, 400, 'only sensors');
-  assert.equal((await save({ chart_sensors: ['sensor.a', 'sensor.b', 'sensor.c', 'sensor.d'] })).status, 400, 'at most 3');
+  assert.equal((await save({ chart_sensors: ['sensor.a', 'sensor.b', 'sensor.c', 'sensor.d', 'sensor.e', 'sensor.f', 'sensor.g'] })).status, 400, 'at most 6');
+  assert.equal((await save({ chart_sensors: ['sensor.a', 'sensor.b', 'sensor.c', 'sensor.d', 'sensor.e', 'sensor.f'] })).status, 200, '6 is fine');
   const r = await save({ chart_sensors: ['sensor.woonkamer_temp_hum_temperature', 'sensor.heatbooster_woonkamer_garage_temp_ambient'] });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   const d = (await req('GET', '/api/history')).data;

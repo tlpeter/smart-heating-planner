@@ -39,7 +39,7 @@ The test version may contain unfinished or less-tested changes. Its version numb
 
 The schedule only counts when someone is home; this is an option (Settings › Presence). Per person you choose whether they count for "home" and whether "coming home" applies, and for everyone which kinds of tracker count (GPS/zones, router, Bluetooth). A person with an unknown location counts as home: better warm than cold.
 
-The app looks like Home Assistant with Mushroom cards and follows light and dark mode. It has four pages: **Home** (advice now, a chart of the last 24 hours, who is home, schedule, manual hold, HeatMeisters), **Schedule** (the week), **Activity** (every change in the advice, with the reason) and **Settings**.
+The app looks like Home Assistant with Mushroom cards and follows light and dark mode. It has four pages: **Home** (advice now, a chart of the last 24 hours (lines on/off in the legend), who is home, schedule, manual hold, HeatMeisters), **Schedule** (the week), **Activity** (every change in the advice, with the reason) and **Settings**.
 
 The full explanation of every option is in [DOCS.md](smart_heating_planner/DOCS.md) (also the **Documentation** tab of the app in Home Assistant).
 

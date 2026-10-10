@@ -416,7 +416,7 @@ async function loadSettingsPage() {
 $('s-thermostat').addEventListener('change', thermostatNote);
 // At most 3 extra sensors in the chart.
 $('s-chart').addEventListener('change', () => {
-  const full = document.querySelectorAll('#s-chart input:checked').length >= 3;
+  const full = document.querySelectorAll('#s-chart input:checked').length >= 6;
   document.querySelectorAll('#s-chart input').forEach((x) => { x.disabled = full && !x.checked; });
 });
 $('s-hm-send').addEventListener('change', () => $('s-room-source-label').classList.toggle('hidden', $('s-hm-send').value !== 'room'));
@@ -455,9 +455,20 @@ $('settings-form').addEventListener('submit', async (e) => {
 // The last 24 hours from Home Assistant's history: the room temperature and
 // setpoint of the thermostat, plus up to 3 sensors chosen in Settings.
 // One axis (°C). Hover or touch shows the values at that moment.
+// A click on a name in the legend shows or hides that line; the choice is
+// kept in this browser. New sensors: the first 3 are shown, the rest hidden.
 const SVGNS = 'http://www.w3.org/2000/svg';
 let chartData = null;
-function seriesColor(i) { return `var(--series-${Math.min(i, 4) + 1})`; }
+function seriesColor(i) { return `var(--series-${Math.min(i, 7) + 1})`; }
+let chartShown = {};
+try { chartShown = JSON.parse(localStorage.getItem('shp-chart-shown') || '{}') || {}; } catch { chartShown = {}; }
+function isShown(sr, i) { return chartShown[sr.id] !== undefined ? chartShown[sr.id] : i < 5; }
+function toggleSeries(id) {
+  const i = chartData.series.findIndex((x) => x.id === id);
+  chartShown[id] = !isShown(chartData.series[i], i);
+  try { localStorage.setItem('shp-chart-shown', JSON.stringify(chartShown)); } catch { /* private window */ }
+  drawChart();
+}
 function valueAt(points, t) {
   let v = null;
   for (const p of points) { if (p[0] > t) break; v = p[1]; }
@@ -469,14 +480,29 @@ function svgEl(name, attrs) {
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
   return el;
 }
+// Legend with the latest value (so colour is never the only clue); a click
+// shows or hides the line.
+function drawLegend() {
+  const d = chartData;
+  $('chart-legend').innerHTML = d.series.map((sr, i) => {
+    const last = sr.points.length ? sr.points[sr.points.length - 1][1] : null;
+    return `<li><button type="button" data-series="${esc(sr.id)}" aria-pressed="${isShown(sr, i)}" title="Show or hide this line"><i class="${sr.kind}" style="background:${seriesColor(i)}"></i>${esc(sr.name)} <b>${last === null ? '–' : `${last.toFixed(1)} °C`}</b></button></li>`;
+  }).join('');
+}
+$('chart-legend').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-series]');
+  if (b) toggleSeries(b.dataset.series);
+});
 function drawChart() {
   const box = $('chart');
   const d = chartData;
   box.innerHTML = '';
   if (!d || !d.series.length) { $('chart-legend').innerHTML = ''; return; }
-  const series = d.series.filter((x) => x.points.some((p) => p[1] !== null));
+  const series = d.series.filter((x, i) => isShown(x, i) && x.points.some((p) => p[1] !== null));
+  drawLegend();
   const all = series.flatMap((x) => x.points.map((p) => p[1])).filter((v) => v !== null);
-  if (!all.length) { $('chart-note').textContent = 'No history yet for these entities.'; return; }
+  if (!all.length) { $('chart-note').textContent = d.series.some((x, i) => isShown(x, i)) ? 'No history yet for these entities.' : 'All lines are hidden. Click a name above to show it.'; return; }
+  $('chart-note').textContent = '';
   const W = Math.max(280, box.clientWidth);
   const H = W < 500 ? 190 : 230;
   const m = { l: 34, r: 10, t: 8, b: 22 };
@@ -549,16 +575,11 @@ function drawChart() {
   hit.addEventListener('pointerleave', leave);
   box.appendChild(svg);
   box.appendChild(tip);
-  // Legend with the latest value (so colour is never the only clue).
-  $('chart-legend').innerHTML = d.series.map((sr, i) => {
-    const last = sr.points.length ? sr.points[sr.points.length - 1][1] : null;
-    return `<li><i class="${sr.kind}" style="background:${seriesColor(i)}"></i>${esc(sr.name)} <b>${last === null ? '–' : `${last.toFixed(1)} °C`}</b></li>`;
-  }).join('');
-  // The same data as a table: one row per hour.
-  const head = `<tr><th>Time</th>${d.series.map((sr) => `<th>${esc(sr.name)}</th>`).join('')}</tr>`;
+  // The same data as a table: one row per hour (the lines that are shown).
+  const head = `<tr><th>Time</th>${series.map((sr) => `<th>${esc(sr.name)}</th>`).join('')}</tr>`;
   const rows = [];
   for (let t = Math.ceil(d.from / hour) * hour; t <= d.to; t += hour) {
-    rows.push(`<tr><td>${hhmm(t)}</td>${d.series.map((sr) => { const v = valueAt(sr.points, t); return `<td class="num">${v === null ? '–' : v.toFixed(1)}</td>`; }).join('')}</tr>`);
+    rows.push(`<tr><td>${hhmm(t)}</td>${series.map((sr) => { const v = valueAt(sr.points, t); return `<td class="num">${v === null ? '–' : v.toFixed(1)}</td>`; }).join('')}</tr>`);
   }
   $('chart-table').innerHTML = head + rows.reverse().join('');
 }

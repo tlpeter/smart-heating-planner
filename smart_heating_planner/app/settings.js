@@ -14,7 +14,7 @@ const { defaultTopic } = require('./heatmeister');
 const FILE = path.join(DATA_DIR, 'settings.json');
 const MAX_HEATMEISTERS = 6;
 const MAX_PERSONS = 10;
-const MAX_CHART_SENSORS = 3;
+const MAX_CHART_SENSORS = 6; // 8 lines in all: as many as there are clear colours
 
 function defaults() {
   return {
