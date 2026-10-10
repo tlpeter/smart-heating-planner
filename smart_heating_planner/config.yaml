@@ -1,7 +1,7 @@
-name: Smart Heating Planner (dev)
-version: "0.4.11-dev"
+name: Smart Heating Planner
+version: "0.5.0"
 slug: smart_heating_planner
-description: "TEST VERSION: heats on a schedule and on who is home (tado + HeatMeister)."
+description: "Heats on a schedule and on who is home (tado + HeatMeister)."
 url: https://github.com/tlpeter/smart-heating-planner
 arch:
   - amd64
@@ -12,12 +12,12 @@ boot: auto
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:radiator
-panel_title: Smart Heating (dev)
+panel_title: Smart Heating
 homeassistant_api: true
 options:
   allow_control: false
   allow_heatmeister_temperature: false
-  allow_heatmeister_target: true
+  allow_heatmeister_target: false
   max_writes_per_day: 48
   refresh_seconds: 30
   log_level: info
