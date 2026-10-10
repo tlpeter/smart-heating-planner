@@ -62,6 +62,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
   4. Remove `-dev` from the changelog headings on `main`.
   5. Push `main` (only after the owner said so).
   6. Run `git merge -s ours main` on `dev`, then push `dev`, so `dev` keeps its own names.
+  7. The next change on `dev` continues after the release: after `0.5.0` comes `0.5.1-dev` (dev stays at or above main).
 - A release zip, when the owner asks for one: `smart-heating-planner-vX.Y.Z.zip`, without a top folder.
 
 ## Tests
