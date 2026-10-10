@@ -8,7 +8,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 
 | Test | Passed |
 |---|---|
-| Settings and situations | 25 of 25 ✓ |
+| Settings and situations | 28 of 28 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
 | HeatMeister temperature (MQTT on) | 10 of 10 ✓ |
 | HeatMeister room target (option on) | 7 of 7 ✓ |
@@ -17,10 +17,11 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
 | HeatMeisters | 18 of 18 ✓ |
+| Chart | 3 of 3 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.4.7.
+Version: 0.4.9.
 
 ## Settings and situations
 
@@ -51,6 +52,9 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 - ✓ large or broken requests are refused
 - ✓ live: a change of a HeatMeister fan shows without waiting for the timer
 - ✓ live: saving other HeatMeisters asks for live updates of the new list
+- ✓ chart: the thermostat room temperature and setpoint of the last 24 hours, from Home Assistant's history
+- ✓ chart: up to 3 extra temperature sensors, chosen in Settings
+- ✓ chart: no history in Home Assistant gives a clear error, the rest keeps working
 - ✓ the temperature for the HeatMeisters (by default the room temperature) is shown, but not sent while its option is off
 - ✓ SAFETY: with "Allow control" off the app only sent read-only commands
 
@@ -195,6 +199,16 @@ Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_
 - ✓ entity ids of one HeatMeister: also the "_2" ones, not the WiFi values
 - ✓ room target: the setpoint, within the HeatMeister limits and steps, only when it differs
 - ✓ room target entity: the working one ("_2" for Woonkamer-voor), with its limits
+
+## Chart
+
+The chart on Home: the thermostat room temperature and setpoint, and chosen sensors, from Home Assistant's history; gaps, only changes, at most 300 points per line.
+
+`node tests/history.test.js`
+
+- ✓ room temperature and setpoint come from the thermostat's attributes
+- ✓ sensors: their state, with their name; no thermostat: only the sensors
+- ✓ only the changes are kept, and at most 300 points per line
 
 ## Finding entities
 
