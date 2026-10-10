@@ -17,11 +17,11 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Decision | 10 of 10 ✓ |
 | When to send | 8 of 8 ✓ |
 | HeatMeisters | 18 of 18 ✓ |
-| Chart | 3 of 3 ✓ |
+| Chart | 4 of 4 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.4.9.
+Version: 0.4.10.
 
 ## Settings and situations
 
@@ -209,6 +209,7 @@ The chart on Home: the thermostat room temperature and setpoint, and chosen sens
 - ✓ room temperature and setpoint come from the thermostat's attributes
 - ✓ sensors: their state, with their name; no thermostat: only the sensors
 - ✓ only the changes are kept, and at most 300 points per line
+- ✓ the value of now is added at the end when the history does not have it yet
 
 ## Finding entities
 
