@@ -50,8 +50,18 @@ function changes(points) {
   return out;
 }
 
+// Add the value of now at the end, when the history does not have it yet
+// (Home Assistant writes its history every few seconds).
+function withNow(points, value, to) {
+  if (value === undefined) return points;
+  const last = points.length ? points[points.length - 1][1] : undefined;
+  if (last === value) return points;
+  return [...points, [to, value]];
+}
+
 // Turn Home Assistant's history into lines for the chart.
-function build(climateHist, sensorHist, s, names, from, to) {
+// `current`: entity_id -> its state now (optional).
+function build(climateHist, sensorHist, s, names, from, to, current = {}) {
   const series = [];
   if (s.thermostat) {
     const list = (climateHist && climateHist[s.thermostat]) || [];
@@ -65,13 +75,17 @@ function build(climateHist, sensorHist, s, names, from, to) {
       room.push([t, off ? null : num(attrs.current_temperature)]);
       setpoint.push([t, off || e.s === 'off' ? null : num(attrs.temperature)]);
     }
-    series.push({ id: 'room', entity_id: s.thermostat, name: 'Room (thermostat)', kind: 'room', points: thin(changes(room), from, to) });
-    series.push({ id: 'setpoint', entity_id: s.thermostat, name: 'Setpoint', kind: 'setpoint', points: thin(changes(setpoint), from, to) });
+    const now = current[s.thermostat];
+    const nowOff = !now || now.state === 'unavailable' || now.state === 'unknown';
+    const na = (now && now.attributes) || {};
+    series.push({ id: 'room', entity_id: s.thermostat, name: 'Room (thermostat)', kind: 'room', points: withNow(thin(changes(room), from, to), now ? (nowOff ? null : num(na.current_temperature)) : undefined, to) });
+    series.push({ id: 'setpoint', entity_id: s.thermostat, name: 'Setpoint', kind: 'setpoint', points: withNow(thin(changes(setpoint), from, to), now ? (nowOff || now.state === 'off' ? null : num(na.temperature)) : undefined, to) });
   }
   for (const id of s.chart_sensors || []) {
     const list = (sensorHist && sensorHist[id]) || [];
     const pts = list.map((e) => [Math.max(from, timeOf(e)), num(e.s)]);
-    series.push({ id, entity_id: id, name: names[id] || id, kind: 'sensor', points: thin(changes(pts), from, to) });
+    const now = current[id];
+    series.push({ id, entity_id: id, name: names[id] || id, kind: 'sensor', points: withNow(thin(changes(pts), from, to), now ? num(now.state) : undefined, to) });
   }
   return { from, to, series };
 }
@@ -93,17 +107,26 @@ async function get(now = Date.now()) {
     type: 'history/history_during_period', start_time: start, end_time: end,
     entity_ids: sensors, minimal_response: true, no_attributes: true, significant_changes_only: false,
   }, 30000) : {};
-  // Names of the sensors, from their current state.
+  // The names of the sensors and the values of now.
   const names = {};
-  if (sensors.length) {
+  const current = {};
+  const wanted = [s.thermostat, ...sensors].filter(Boolean);
+  if (wanted.length) {
     const states = await ha.call({ type: 'get_states' });
-    for (const st of states) if (sensors.includes(st.entity_id)) names[st.entity_id] = (st.attributes && st.attributes.friendly_name) || st.entity_id;
+    for (const st of states) {
+      if (!wanted.includes(st.entity_id)) continue;
+      current[st.entity_id] = st;
+      names[st.entity_id] = (st.attributes && st.attributes.friendly_name) || st.entity_id;
+    }
   }
-  const data = build(climateHist, sensorHist, s, names, from, now);
-  cache = { key, at: now, data };
+  const data = build(climateHist, sensorHist, s, names, from, now, current);
+  // Only keep it for a minute when there is a history (a fresh Home
+  // Assistant may not have written it yet).
+  const some = data.series.some((x) => x.points.length > 1);
+  cache = some ? { key, at: now, data } : null;
   return data;
 }
 
 function clear() { cache = null; }
 
-module.exports = { get, build, thin, changes, clear, HOURS, MAX_POINTS };
+module.exports = { get, build, thin, changes, withNow, clear, HOURS, MAX_POINTS };

@@ -40,3 +40,13 @@ test('only the changes are kept, and at most 300 points per line', () => {
   assert.ok(thin.length <= history.MAX_POINTS + 1, `${thin.length} points`);
   assert.deepEqual(thin.at(-1), many.at(-1), 'the last value stays');
 });
+
+test('the value of now is added at the end when the history does not have it yet', () => {
+  const climate = { 'climate.t': [{ s: 'heat', a: { current_temperature: 19.4, temperature: 19 }, lu: from / 1000 }] };
+  const current = { 'climate.t': { state: 'heat', attributes: { current_temperature: 20.2, temperature: 20 } }, 'sensor.a': { state: '18.1' } };
+  const d = history.build(climate, {}, { thermostat: 'climate.t', chart_sensors: ['sensor.a'] }, {}, from, to, current);
+  assert.deepEqual(d.series.find((x) => x.id === 'setpoint').points, [[from, 19], [to, 20]]);
+  assert.deepEqual(d.series.find((x) => x.id === 'sensor.a').points, [[to, 18.1]], 'no history yet: only now');
+  // The same value: nothing added.
+  assert.deepEqual(history.withNow([[from, 19]], 19, to), [[from, 19]]);
+});

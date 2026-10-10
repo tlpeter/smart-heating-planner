@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.10-dev
+
+- Chart: the value of now is always at the right edge, also when Home Assistant has not written it to its history yet.
+
 ## 0.4.9-dev
 
 - **Chart on Home**: the last 24 hours of the thermostat's room temperature and setpoint. In Settings › **Chart on Home** you can add up to 3 temperature sensors (for example per room, or a HeatMeister's own room temperature). Hover or touch for the values; **Show as table** for the values per hour. The data comes from Home Assistant's own history.

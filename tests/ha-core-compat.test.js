@@ -59,7 +59,17 @@ test.after(() => {
   if (dataDir) fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
+// A failure also shows as a note on the GitHub run (easier to read than the log).
 test('the app works against a real Home Assistant Core', async () => {
+  try {
+    await run();
+  } catch (err) {
+    console.log(`::error::${String(err.message).split('\n').slice(0, 3).join(' ')}`);
+    throw err;
+  }
+});
+
+async function run() {
   await waitForCore();
   const token = await onboard();
   assert.ok(token, 'no access token');
@@ -107,7 +117,15 @@ test('the app works against a real Home Assistant Core', async () => {
   for (let i = 0; i < 25 && !status.live; i++) { await sleep(200); status = await appApi('/api/status'); }
   assert.equal(status.live, true, 'no live updates from Home Assistant');
   // The chart: Home Assistant's history (recorder) gives the setpoint.
-  const hist = await appApi('/api/history');
-  const sp = hist.series.find((x) => x.id === 'setpoint');
+  // A fresh Home Assistant writes its history every few seconds: wait for it.
+  let hist;
+  let sp;
+  for (let i = 0; i < 30; i++) {
+    try { hist = await appApi('/api/history'); } catch (err) { hist = { error: err.message }; }
+    sp = hist.series && hist.series.find((x) => x.id === 'setpoint');
+    if (sp && sp.points.some((p) => typeof p[1] === 'number')) break;
+    await sleep(1000);
+  }
+  if (!sp) console.log(`::error::Chart history: ${JSON.stringify(hist).slice(0, 500)}`);
   assert.ok(sp && sp.points.some((p) => typeof p[1] === 'number'), `no setpoint history: ${JSON.stringify(hist).slice(0, 300)}`);
-});
+}
