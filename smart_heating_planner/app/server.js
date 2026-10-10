@@ -10,6 +10,7 @@ const settings = require('./settings');
 const controller = require('./controller');
 const holdStore = require('./hold');
 const activity = require('./activity');
+const history = require('./history');
 const schedule = require('./schedule');
 const { detect } = require('./entities');
 const diagnostics = require('./diagnostics');
@@ -82,6 +83,7 @@ async function api(req, res, url) {
     const result = settings.save(body);
     if (!result.ok) return sendJson(res, 400, { error: result.errors.join('; '), errors: result.errors });
     ha.log('Settings saved:', Object.keys(body).join(', '));
+    history.clear();
     await controller.refresh();
     controller.scheduleMqtt(); // a new interval or new HeatMeisters take effect now
     return sendJson(res, 200, result.value);
@@ -110,6 +112,15 @@ async function api(req, res, url) {
     holdStore.clear();
     ha.log('Manual hold ended');
     return sendJson(res, 200, await controller.refresh());
+  }
+  if (req.method === 'GET' && p === '/api/history') {
+    if (!ha.state.connected) return sendJson(res, 503, { error: 'Not connected to Home Assistant' });
+    try {
+      return sendJson(res, 200, await history.get());
+    } catch (err) {
+      ha.warn('Reading the history failed:', err.message);
+      return sendJson(res, 502, { error: `Could not read the history: ${err.message}` });
+    }
   }
   if (req.method === 'GET' && p === '/api/activity') return sendJson(res, 200, activity.recent(200));
   if (req.method === 'GET' && p === '/api/diagnostics') {

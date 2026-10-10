@@ -14,6 +14,7 @@ const { defaultTopic } = require('./heatmeister');
 const FILE = path.join(DATA_DIR, 'settings.json');
 const MAX_HEATMEISTERS = 6;
 const MAX_PERSONS = 10;
+const MAX_CHART_SENSORS = 3;
 
 function defaults() {
   return {
@@ -34,6 +35,8 @@ function defaults() {
     heatmeister_send: 'room',
     // For 'room': '' = the thermostat's room temperature, or a sensor.
     room_temperature_source: '',
+    // Extra temperature sensors in the chart on Home (at most MAX_CHART_SENSORS).
+    chart_sensors: [],
     // HeatMeisters expect the value regularly (the owner's flow: every 15 s).
     room_temperature_interval_seconds: 15,
     schedule: schedule.defaultSchedule(),
@@ -52,6 +55,7 @@ function load() {
     tracker_types: { ...base.tracker_types, ...(saved.tracker_types || {}) },
     persons: normalisePersons(saved.persons),
   };
+  if (!Array.isArray(out.chart_sensors)) out.chart_sensors = [];
   // Older versions: a Proximity sensor distance, and Heatmeisters by entity.
   if (saved.proximity && saved.coming_home_km === undefined && Number(saved.proximity.distance_km) > 0) out.coming_home_km = Number(saved.proximity.distance_km);
   delete out.proximity;
@@ -118,6 +122,18 @@ function validate(input) {
     else errors.push('Send to the HeatMeisters: "setpoint" or "room"');
   }
   if ('room_temperature_source' in input) v.room_temperature_source = entityOrEmpty(input.room_temperature_source, ['sensor'], 'Room temperature source', errors);
+  if ('chart_sensors' in input) {
+    if (!Array.isArray(input.chart_sensors)) errors.push('Chart sensors must be a list');
+    else {
+      const list = [];
+      for (const x of input.chart_sensors) {
+        const id = entityOrEmpty(x, ['sensor'], 'Chart sensor', errors);
+        if (id && !list.includes(id)) list.push(id);
+      }
+      if (list.length > MAX_CHART_SENSORS) errors.push(`At most ${MAX_CHART_SENSORS} sensors in the chart`);
+      v.chart_sensors = list.slice(0, MAX_CHART_SENSORS);
+    }
+  }
   if ('room_temperature_interval_seconds' in input) v.room_temperature_interval_seconds = Math.round(num(input.room_temperature_interval_seconds, 5, 600, 'Send the temperature every (seconds)', errors, old.room_temperature_interval_seconds));
   if ('away_temp' in input) v.away_temp = schedule.roundTemp(num(input.away_temp, 5, 22, 'Away temperature', errors, old.away_temp));
   if ('away_delay_minutes' in input) v.away_delay_minutes = Math.round(num(input.away_delay_minutes, 0, 120, 'Away delay', errors, old.away_delay_minutes));
@@ -179,4 +195,4 @@ function save(input) {
   return result;
 }
 
-module.exports = { get, save, validate, defaults, MAX_HEATMEISTERS };
+module.exports = { get, save, validate, defaults, MAX_HEATMEISTERS, MAX_CHART_SENSORS };

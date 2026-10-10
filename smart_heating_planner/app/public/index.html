@@ -48,6 +48,14 @@
         <p id="ctl-last" class="muted small hidden"></p>
       </div>
 
+      <div class="card">
+        <h2><span class="shape sm c-blue" data-icon="chart"></span>Last 24 hours</h2>
+        <ul id="chart-legend" class="legend"></ul>
+        <div id="chart" class="chart" role="img" aria-label="Room temperature and setpoint over the last 24 hours"></div>
+        <p id="chart-note" class="muted small"></p>
+        <details class="small"><summary class="muted">Show as table</summary><div class="table-wrap"><table id="chart-table" class="ctable"></table></div></details>
+      </div>
+
       <div class="grid">
         <div class="card">
           <h2><span class="shape sm c-green" data-icon="people"></span>Who is home</h2>
@@ -191,6 +199,12 @@
             </label>
           </div>
           <p id="s-room-note" class="muted small"></p>
+        </div>
+
+        <div class="card">
+          <h2><span class="shape sm c-blue" data-icon="chart"></span>Chart on Home</h2>
+          <p class="muted small">The chart always shows the thermostat's room temperature and setpoint. Tick up to 3 more temperature sensors (for example one per room, or a HeatMeister's own room temperature).</p>
+          <div id="s-chart" class="checks col"></div>
         </div>
 
         <div class="card">

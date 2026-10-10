@@ -28,6 +28,7 @@ const FILES = [
   ['decide.test.js', 'Decision', 'Which temperature and why.'],
   ['control.test.js', 'When to send', 'The rules for writing to the thermostat and for noticing a change by hand.'],
   ['heatmeister.test.js', 'HeatMeisters', 'Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_…) and reading what they do.'],
+  ['history.test.js', 'Chart', 'The chart on Home: the thermostat room temperature and setpoint, and chosen sensors, from Home Assistant\'s history; gaps, only changes, at most 300 points per line.'],
   ['entities.test.js', 'Finding entities', 'HomeKit thermostat first, tado cloud marked, persons with their trackers, HeatMeisters offered.'],
   ['persistence.test.js', 'Saving', 'Settings, hold and activity survive a restart; files are written safely.'],
 ];

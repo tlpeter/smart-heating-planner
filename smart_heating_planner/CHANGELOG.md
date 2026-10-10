@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.9-dev
+
+- **Chart on Home**: the last 24 hours of the thermostat's room temperature and setpoint. In Settings › **Chart on Home** you can add up to 3 temperature sensors (for example per room, or a HeatMeister's own room temperature). Hover or touch for the values; **Show as table** for the values per hour. The data comes from Home Assistant's own history.
+
 ## 0.4.8-dev
 
 - Test version: new options are **on** by default, so you can try them right away. **Set HeatMeister room target** is now on by default on the test version. The stable version keeps every control option off by default.

@@ -24,6 +24,7 @@ function detect(states, entities = []) {
   const thermostats = [];
   const persons = [];
   const temperatures = [];
+  const chartTemperatures = []; // for the chart: also a HeatMeister's own room temperature
   for (const st of states || []) {
     const id = st.entity_id;
     const domain = id.split('.')[0];
@@ -42,6 +43,9 @@ function detect(states, entities = []) {
       // Room temperature sensors (not the HeatMeisters' own water and room sensors).
       if ((a.device_class === 'temperature' || a.unit_of_measurement === '°C') && !/heat_?(booster|meister)_/.test(id)) {
         temperatures.push({ entity_id: id, name: friendly(st), state: st.state });
+      }
+      if ((a.device_class === 'temperature' || a.unit_of_measurement === '°C') && (!/heat_?(booster|meister)_/.test(id) || /_temp_ambient(?:_\d+)?$/.test(id))) {
+        chartTemperatures.push({ entity_id: id, name: friendly(st), state: st.state });
       }
     } else if (domain === 'person') {
       const list = Array.isArray(st.attributes && st.attributes.device_trackers) ? st.attributes.device_trackers : [];
@@ -70,6 +74,7 @@ function detect(states, entities = []) {
       control_state: heatmeister.read(states, d.prefix).control_state,
     })),
     temperatures: temperatures.sort(byEntity),
+    chartTemperatures: chartTemperatures.sort(byEntity),
     homeZone: byId.has('zone.home'),
   };
 }

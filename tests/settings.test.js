@@ -327,6 +327,45 @@ test('live: saving other HeatMeisters asks for live updates of the new list', as
   await refreshed();
 });
 
+test('chart: the thermostat room temperature and setpoint of the last 24 hours, from Home Assistant\'s history', async () => {
+  const r = await req('GET', '/api/history');
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const d = r.data;
+  assert.ok(d.to - d.from >= 24 * 3600 * 1000 - 1000);
+  assert.deepEqual(d.series.map((x) => x.id), ['room', 'setpoint']);
+  const sp = d.series.find((x) => x.id === 'setpoint');
+  assert.ok(sp.points.length >= 2, 'setpoint changes over the day');
+  assert.ok(sp.points.every((p) => p[0] >= d.from && p[0] <= d.to));
+  assert.ok(sp.points.some((p) => p[1] === 16) && sp.points.some((p) => p[1] === 19));
+  const call = fakeHa.calls.filter((c) => c.type === 'history/history_during_period').at(-1);
+  assert.deepEqual(call.entity_ids, ['climate.tado_smart_thermostat_ru3010610432']);
+});
+
+test('chart: up to 3 extra temperature sensors, chosen in Settings', async () => {
+  assert.equal((await save({ chart_sensors: ['climate.verwarming'] })).status, 400, 'only sensors');
+  assert.equal((await save({ chart_sensors: ['sensor.a', 'sensor.b', 'sensor.c', 'sensor.d'] })).status, 400, 'at most 3');
+  const r = await save({ chart_sensors: ['sensor.woonkamer_temp_hum_temperature', 'sensor.heatbooster_woonkamer_garage_temp_ambient'] });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const d = (await req('GET', '/api/history')).data;
+  assert.deepEqual(d.series.map((x) => x.id), ['room', 'setpoint', 'sensor.woonkamer_temp_hum_temperature', 'sensor.heatbooster_woonkamer_garage_temp_ambient']);
+  assert.equal(d.series[2].name, 'Woonkamer_temp_hum Temperature');
+  assert.ok(d.series[2].points.length > 2);
+  const { data } = await req('GET', '/api/entities');
+  assert.ok(data.chartTemperatures.some((t) => t.entity_id === 'sensor.heatbooster_woonkamer_garage_temp_ambient'), 'a HeatMeister room temperature can be chosen');
+  assert.ok(!data.chartTemperatures.some((t) => t.entity_id === 'sensor.heatbooster_woonkamer_garage_temp_inlet'), 'not its water temperature');
+  await save({ chart_sensors: [] });
+});
+
+test('chart: no history in Home Assistant gives a clear error, the rest keeps working', async () => {
+  fakeHa.world.failHistory = true;
+  await save({}); // clears the cache
+  const r = await req('GET', '/api/history');
+  assert.equal(r.status, 502);
+  assert.match(r.data.error, /Recorder/);
+  fakeHa.world.failHistory = false;
+  assert.equal((await status()).connected, true);
+});
+
 test('the temperature for the HeatMeisters (by default the room temperature) is shown, but not sent while its option is off', async () => {
   const s = await refreshed();
   assert.equal(s.roomTemperature.allowed, false);

@@ -37,6 +37,7 @@ function freshWorld() {
     failWrites: false,
     failMqtt: false,
     failHmTarget: false,
+    failHistory: false,
     mqtt: {}, // topic -> [payloads] sent by the app
     // Where each person's GPS tracker is: 'home', 'not_home', a zone name or 'unknown'.
     persons: { peter: 'home', yvonne: 'not_home', cheyenne: 'not_home' },
@@ -142,6 +143,36 @@ function states() {
   return list.map(([entity_id, state, attributes]) => ({ entity_id, state: String(state), attributes, last_changed: now, last_updated: now, context: { id: 'x' } }));
 }
 
+// A made-up day: every hour a new point; the setpoint 19 by day and 16 at
+// night; the room follows it slowly. Now: the world's own values.
+function history(msg) {
+  const from = Date.parse(msg.start_time);
+  const to = msg.end_time ? Date.parse(msg.end_time) : Date.now();
+  const out = {};
+  const now = Object.fromEntries(states().map((st) => [st.entity_id, st]));
+  for (const id of msg.entity_ids || []) {
+    if (!now[id]) continue;
+    const list = [];
+    for (let t = from, i = 0; t < to; t += 3600000, i++) {
+      const night = i % 24 < 8;
+      const target = night ? 16 : 19;
+      const room = Math.round((night ? 17.2 : 19.6) * 10 + (i % 3)) / 10;
+      if (id.startsWith('climate.')) {
+        list.push({ s: 'heat', a: { ...now[id].attributes, current_temperature: room, temperature: target }, lu: t / 1000 });
+      } else {
+        const e = { s: String(Math.round((room - 0.4) * 10) / 10), lu: t / 1000 };
+        if (!msg.minimal_response || i === 0) e.a = msg.no_attributes ? {} : now[id].attributes;
+        list.push(e);
+      }
+    }
+    // The current value at the end.
+    const cur = now[id];
+    list.push(id.startsWith('climate.') ? { s: cur.state, a: cur.attributes, lu: to / 1000 - 60 } : { s: cur.state, lu: to / 1000 - 60 });
+    out[id] = list;
+  }
+  return out;
+}
+
 function registries() {
   const entities = [
     { entity_id: 'climate.tado_smart_thermostat_ru3010610432', platform: 'homekit_controller', device_id: 'dev_tado_hk' },
@@ -181,6 +212,12 @@ function start(port = 0) {
           const a = {};
           for (const st of states()) if (!msg.entity_ids || msg.entity_ids.includes(st.entity_id)) a[st.entity_id] = { s: st.state, a: st.attributes };
           return ws.send(JSON.stringify({ id: msg.id, type: 'event', event: { a } }));
+        }
+        // The history of the last day (for the chart), like Home Assistant's
+        // compressed format: { entity_id: [{ s, a?, lu }] }, times in seconds.
+        if (msg.type === 'history/history_during_period') {
+          if (world.failHistory) return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'unknown_error', message: 'Recorder is not running' } }));
+          return ok(history(msg));
         }
         if (msg.type === 'unsubscribe_events') {
           const i = subscriptions.findIndex((x) => x.ws === ws && x.id === msg.subscription);

@@ -104,5 +104,5 @@ test('SAFETY: only number.set_value, only on the room targets of the chosen Heat
     assert.equal(typeof c.service_data.value, 'number');
   }
   const other = new Set(fakeHa.calls.filter((c) => c.type !== 'call_service').map((c) => c.type));
-  for (const t of other) assert.ok(['get_states', 'get_config', 'config/entity_registry/list', 'config/device_registry/list', 'subscribe_entities', 'unsubscribe_events'].includes(t), t);
+  for (const t of other) assert.ok(['get_states', 'get_config', 'config/entity_registry/list', 'config/device_registry/list', 'subscribe_entities', 'unsubscribe_events', 'history/history_during_period'].includes(t), t);
 });

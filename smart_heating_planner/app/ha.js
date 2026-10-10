@@ -64,6 +64,8 @@ const READ_ONLY_COMMANDS = new Set([
   // entities changes (only reads), and the app can stop that again.
   'subscribe_entities',
   'unsubscribe_events',
+  // The chart on Home: Home Assistant's own history (only reads).
+  'history/history_during_period',
 ]);
 
 const CONTROL_TOKEN = Symbol('thermostat control');

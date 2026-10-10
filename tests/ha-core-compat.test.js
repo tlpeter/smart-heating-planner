@@ -106,4 +106,8 @@ test('the app works against a real Home Assistant Core', async () => {
   // Live updates (subscribe_entities) work with this Home Assistant.
   for (let i = 0; i < 25 && !status.live; i++) { await sleep(200); status = await appApi('/api/status'); }
   assert.equal(status.live, true, 'no live updates from Home Assistant');
+  // The chart: Home Assistant's history (recorder) gives the setpoint.
+  const hist = await appApi('/api/history');
+  const sp = hist.series.find((x) => x.id === 'setpoint');
+  assert.ok(sp && sp.points.some((p) => typeof p[1] === 'number'), `no setpoint history: ${JSON.stringify(hist).slice(0, 300)}`);
 });
