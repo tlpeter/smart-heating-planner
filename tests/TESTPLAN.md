@@ -21,7 +21,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.4.10.
+Version: 0.5.0.
 
 ## Settings and situations
 
@@ -53,7 +53,7 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 - ✓ live: a change of a HeatMeister fan shows without waiting for the timer
 - ✓ live: saving other HeatMeisters asks for live updates of the new list
 - ✓ chart: the thermostat room temperature and setpoint of the last 24 hours, from Home Assistant's history
-- ✓ chart: up to 3 extra temperature sensors, chosen in Settings
+- ✓ chart: up to 6 extra temperature sensors, chosen in Settings
 - ✓ chart: no history in Home Assistant gives a clear error, the rest keeps working
 - ✓ the temperature for the HeatMeisters (by default the room temperature) is shown, but not sent while its option is off
 - ✓ SAFETY: with "Allow control" off the app only sent read-only commands
