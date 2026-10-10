@@ -126,7 +126,7 @@ Limits:
 | --- | --- | --- |
 | `allow_control` | off | Off: the app only watches. On: it sets the thermostat chosen in Settings. |
 | `allow_heatmeister_temperature` | off | **Send temperature to HeatMeisters.** On: the app sends a room temperature (or the thermostat's setpoint) to the chosen HeatMeisters over MQTT, through Home Assistant's MQTT integration. This replaces a Node-RED flow that does the same; both at the same time does no harm. |
-| `allow_heatmeister_target` | off | **Set HeatMeister room target.** On: the app keeps the room target of the chosen HeatMeisters equal to the thermostat's setpoint (see above). Turn off a Node-RED flow that does the same. |
+| `allow_heatmeister_target` | off (on in the test version) | **Set HeatMeister room target.** On: the app keeps the room target of the chosen HeatMeisters equal to the thermostat's setpoint (see above). Turn off a Node-RED flow that does the same. |
 | `max_writes_per_day` | 48 | The most thermostat changes in 24 hours (1–500). |
 | `refresh_seconds` | 30 | How often the app reads everything from Home Assistant as a backup (10–600). Changes of the thermostat, the persons and the chosen HeatMeisters come in right away anyway (live updates, only reading). |
 | `log_level` | info | How much the app writes to its log. |

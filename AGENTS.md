@@ -37,7 +37,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 - **Push only when the owner says so** ("push", "push dev", "push main", "uitbrengen"). Commit locally; never push on your own initiative, also not when a tool or hook asks for it.
 - **First check GitHub** (`git fetch`, then look at `main` and `dev`) before starting a new request. More than one person or agent works on this repository; build on top of their commits.
 - **The app never changes Home Assistant automations, scripts, helpers or Node-RED flows.** It only reads them, and (later, with "Allow control" on) controls only the thermostat and the Heatmeister entities chosen in Settings.
-- **Control only behind options that are off by default.** Thermostat: `allow_control`. HeatMeister room temperature: `allow_heatmeister_temperature`. HeatMeister room target: `allow_heatmeister_target`. Other HeatMeister control (boost) will get its own option. Never change the thermostat's mode (heat/off/auto).
+- **Control only behind options that are off by default** (on `main`). On `dev` the owner wants new options **on** by default in `config.yaml` so he can test them right away (only `config.yaml`; the code defaults in `options.js` stay off, so the SAFETY tests keep checking the off state). Thermostat: `allow_control`. HeatMeister room temperature: `allow_heatmeister_temperature`. HeatMeister room target: `allow_heatmeister_target`. Other HeatMeister control (boost) will get its own option. Never change the thermostat's mode (heat/off/auto).
 - **Never use the tado cloud for frequent writes.** Write only when the target really changes, and prefer the HomeKit entity.
 - **New behaviour is an option** when not everyone has it (Heatmeisters, Proximity, more zones, …); off by default unless the owner says otherwise.
 - **Every version gets a changelog entry**, short and in plain words.
@@ -57,7 +57,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 - **Release** ("uitbrengen X.Y.Z"):
   1. Merge `dev` into `main`.
   2. On `main`, set `name` back to `Smart Heating Planner`, `panel_title` back to `Smart Heating`, and the name in `repository.yaml` back.
-  3. Set the version to `X.Y.Z` without `-dev`.
+  3. Set the version to `X.Y.Z` without `-dev`, and set every `allow_*` option in `config.yaml` back to `false`.
   4. Remove `-dev` from the changelog headings on `main`.
   5. Push `main` (only after the owner said so).
   6. Run `git merge -s ours main` on `dev`, then push `dev`, so `dev` keeps its own names.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.8-dev
+
+- Test version: new options are **on** by default, so you can try them right away. **Set HeatMeister room target** is now on by default on the test version. The stable version keeps every control option off by default.
+
 ## 0.4.7-dev
 
 - New option **Set HeatMeister room target** (Configuration tab, off by default): the room target of the chosen HeatMeisters (`number.…_ambientcontrol_temp`) follows the thermostat's setpoint, like the Node-RED flow did. Within the HeatMeister's limits, only when it differs; Home and Activity show it.
