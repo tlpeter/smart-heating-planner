@@ -29,7 +29,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
   - every **15 seconds** the tado's measured **room temperature** (`sensor.tado_smart_thermostat_…_current_temperature`; the flow proved it, not the setpoint) to `Woonkamer-garage/temp-ambient-ext`, `Woonkamer-voor/temp-ambient-ext` and `woonkamer-gang/temp-ambient-ext` (lower case!) on the MQTT broker in Home Assistant. The HeatMeister expects the value that often. In the app: `allow_heatmeister_temperature`, "Send to the HeatMeisters" = a room temperature (default).
   - on every new tado **setpoint**: `number.set_value` with the setpoint on the room targets `number.heatbooster_woonkamer_garage_ambientcontrol_temp`, `number.heatbooster_woonkamer_voor_ambientcontrol_temp_2` and `number.heatbooster_woonkamer_gang_ambientcontrol_temp` (Home Assistant sends it to the HeatMeister over MQTT). In the app: `allow_heatmeister_target`.
 - Persons: Peter, Yvonne and Cheyenne (Companion App). The owner uses Home Assistant zones (GPS); Bluetooth trackers should not count by default for him.
-- His current heating control runs in Node-RED and stays on until he says the app takes over.
+- His heating control used to run in Node-RED. On 10 Oct 2026 he turned those flows off: the app now controls the tado and the HeatMeisters (on `dev`).
 - tado's own schedule is not used: all planning runs in Node-RED. So a target the app sets is not undone by tado.
 
 ## Hard rules
