@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.7-dev
+
+- New option **Set HeatMeister room target** (Configuration tab, off by default): the room target of the chosen HeatMeisters (`number.…_ambientcontrol_temp`) follows the thermostat's setpoint, like the Node-RED flow did. Within the HeatMeister's limits, only when it differs; Home and Activity show it.
+- **Send to the HeatMeisters** now sends **a room temperature** by default (the thermostat's own), like the Node-RED flow really did. Already saved settings keep their choice.
+
 ## 0.4.6-dev
 
 - Faster: Home Assistant now tells the app right away when the thermostat, a person or a HeatMeister changes (before, the app looked every 30 seconds). The page updates every 5 seconds (was 15). A fan change shows within a few seconds.

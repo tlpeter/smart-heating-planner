@@ -93,6 +93,37 @@ function entityIds(states, prefix) {
   return dev ? Object.values(dev.all || {}).flat() : [];
 }
 
+// The room temperature target of one HeatMeister (number ..._ambientcontrol_temp),
+// the first one that works (the old id or "_2"), with its limits.
+function targetEntity(states, prefix) {
+  const dev = discover(states).find((d) => d.prefix === prefix);
+  const ids = (dev && dev.all && dev.all.room_target) || [];
+  for (const id of ids) {
+    const st = (states || []).find((s) => s.entity_id === id);
+    if (!st || st.state === 'unavailable' || st.state === 'unknown' || !/^number\./.test(id)) continue;
+    const a = st.attributes || {};
+    return { entity_id: id, value: num(st.state), min: num(a.min), max: num(a.max), step: num(a.step) };
+  }
+  return null;
+}
+
+// Which room target to send to one HeatMeister, or null for nothing.
+// The thermostat's setpoint, kept within the HeatMeister's limits and steps.
+// Not when it already has it, and the same value not again within a minute
+// (Home Assistant may need a moment to show it).
+function targetToSend({ setpoint, entity, last, now }) {
+  if (setpoint === null || setpoint === undefined || !Number.isFinite(Number(setpoint)) || !entity) return null;
+  let v = Number(setpoint);
+  const step = entity.step > 0 ? entity.step : 0.5;
+  v = Math.round(v / step) * step;
+  if (entity.min !== null && entity.min !== undefined) v = Math.max(entity.min, v);
+  if (entity.max !== null && entity.max !== undefined) v = Math.min(entity.max, v);
+  v = Math.round(v * 100) / 100;
+  if (entity.value !== null && Math.abs(entity.value - v) < 0.01) return null;
+  if (last && last.value === v && !last.error && now - last.at < 60000) return null;
+  return v;
+}
+
 // What one HeatMeister is doing now.
 function read(states, prefix) {
   const byId = new Map((states || []).map((s) => [s.entity_id, s]));
@@ -146,4 +177,4 @@ function shouldPublish({ value, last, now, intervalSeconds, targetChanged = fals
   return now - last.at >= intervalSeconds * 1000 - 500; // half a second slack for timer jitter
 }
 
-module.exports = { discover, read, fanStep, entityIds, nameFrom, defaultTopic, shouldPublish, PARTS, RUNNING };
+module.exports = { discover, read, fanStep, entityIds, targetEntity, targetToSend, nameFrom, defaultTopic, shouldPublish, PARTS, RUNNING };

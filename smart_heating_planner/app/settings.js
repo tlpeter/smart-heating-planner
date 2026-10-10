@@ -29,9 +29,9 @@ function defaults() {
     hold_default_minutes: 120,
     manual_change_until: 'next',
     heatmeisters: [], // [{ prefix, name, topic, follows }]
-    // What the HeatMeisters get over MQTT: the thermostat's setpoint (like the
-    // owner's Node-RED flow) or a room temperature.
-    heatmeister_send: 'setpoint',
+    // What the HeatMeisters get over MQTT on <Name>/temp-ambient-ext: a room
+    // temperature (default, like the owner's Node-RED flow) or the setpoint.
+    heatmeister_send: 'room',
     // For 'room': '' = the thermostat's room temperature, or a sensor.
     room_temperature_source: '',
     // HeatMeisters expect the value regularly (the owner's flow: every 15 s).

@@ -10,7 +10,11 @@
 //   setTemperature(), "Allow control");
 // - the temperature for the HeatMeisters (mqtt.publish to the topics set
 //   in Settings, publishRoomTemperature(), "Send temperature to
-//   HeatMeisters"). Anything else is refused.
+//   HeatMeisters");
+// - the room temperature target of the chosen HeatMeisters (number.set_value
+//   on their ..._ambientcontrol_temp, setHeatmeisterTarget(), "Set HeatMeister
+//   room target"). Home Assistant sends it to the HeatMeister over MQTT.
+// Anything else is refused.
 
 const WebSocket = require('ws');
 const { options } = require('./options');
@@ -64,6 +68,7 @@ const READ_ONLY_COMMANDS = new Set([
 
 const CONTROL_TOKEN = Symbol('thermostat control');
 const MQTT_TOKEN = Symbol('heatmeister room temperature');
+const TARGET_TOKEN = Symbol('heatmeister room target');
 
 // Send a command to Home Assistant and wait for its result.
 // onEvent: for a subscription, called with every event Home Assistant sends for it.
@@ -75,7 +80,10 @@ function call(message, timeoutMs = 20000, token = null, onEvent = null) {
         message.domain === 'climate' && message.service === 'set_temperature') ||
       // The room temperature for the HeatMeisters, through publishRoomTemperature().
       (message.type === 'call_service' && token === MQTT_TOKEN && options.allow_heatmeister_temperature === true &&
-        message.domain === 'mqtt' && message.service === 'publish');
+        message.domain === 'mqtt' && message.service === 'publish') ||
+      // The HeatMeisters' room target, through setHeatmeisterTarget().
+      (message.type === 'call_service' && token === TARGET_TOKEN && options.allow_heatmeister_target === true &&
+        message.domain === 'number' && message.service === 'set_value');
     if (!allowed) {
       warn('Refused command', message.type, message.domain ? `${message.domain}.${message.service}` : '', '- not allowed');
       reject(new Error(`Command ${message.type} is not allowed`));
@@ -158,6 +166,31 @@ function unsubscribe(id) {
   return call({ type: 'unsubscribe_events', subscription: id }).catch(() => {});
 }
 
+// The room temperature target of one HeatMeister. Refused unless "Set
+// HeatMeister room target" is on, and only for the target entity of a
+// HeatMeister chosen in Settings.
+const TARGET_ID = /^number\.[a-z0-9_]+_ambientcontrol_temp(?:_\d+)?$/;
+async function setHeatmeisterTarget(entityId, temperature, allowedIds) {
+  if (options.allow_heatmeister_target !== true) {
+    warn('Refused number.set_value - "Set HeatMeister room target" is off');
+    throw new Error('Setting the HeatMeister room target is off in the Configuration tab');
+  }
+  if (!TARGET_ID.test(String(entityId)) || !(allowedIds || []).includes(entityId)) {
+    warn('Refused number.set_value for', entityId, '- not the room target of a chosen HeatMeister');
+    throw new Error(`${entityId} is not the room target of a chosen HeatMeister`);
+  }
+  const t = Number(temperature);
+  if (!Number.isFinite(t) || t < 5 || t > 30) throw new Error(`${temperature} °C is outside 5-30 °C`);
+  log('SENDING HeatMeister room target:', entityId, t, '°C');
+  return call({
+    type: 'call_service',
+    domain: 'number',
+    service: 'set_value',
+    service_data: { value: t },
+    target: { entity_id: entityId },
+  }, 20000, TARGET_TOKEN);
+}
+
 function onConnect(fn) {
   connectListeners.push(fn);
 }
@@ -226,4 +259,4 @@ function connect() {
   });
 }
 
-module.exports = { state, call, subscribeEntities, unsubscribe, setTemperature, publishRoomTemperature, onConnect, connect, recentLog, log, debug, warn, READ_ONLY_COMMANDS };
+module.exports = { state, call, subscribeEntities, unsubscribe, setTemperature, publishRoomTemperature, setHeatmeisterTarget, onConnect, connect, recentLog, log, debug, warn, READ_ONLY_COMMANDS };

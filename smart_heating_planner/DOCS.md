@@ -2,7 +2,7 @@
 
 Heats the house on a week schedule and on who is home, with a tado° thermostat and optional HeatMeister radiator fans.
 
-By default the app only **watches**: it shows what it would do and logs it on the Activity page, but sends nothing. Turn on **Allow control** in the Configuration tab to let it set the thermostat. The HeatMeisters run by themselves; the app shows what they do and, with **Send temperature to HeatMeisters** on, sends them the thermostat's setpoint (or a room temperature) over MQTT.
+By default the app only **watches**: it shows what it would do and logs it on the Activity page, but sends nothing. Turn on **Allow control** in the Configuration tab to let it set the thermostat. The HeatMeisters run by themselves; the app shows what they do and, with **Send temperature to HeatMeisters** on, sends them the room temperature over MQTT; with **Set HeatMeister room target** on, it keeps their room target equal to the thermostat's setpoint.
 
 > [!IMPORTANT]
 > Before you turn on **Allow control**, turn off your other heating control (for example a Node-RED flow or automations that set the thermostat). Otherwise both change the thermostat, and the app sees the other one's changes as changes by hand.
@@ -44,7 +44,8 @@ One line for every event, the last 500 are kept:
 - **Advice**: the advice changed (with the reason).
 - **Sent**: the app set the thermostat (only with Allow control on).
 - **Changed by hand**: someone changed the thermostat; the app keeps it for a while.
-- **Error**: setting the thermostat failed.
+- **HeatMeister target**: the app set the room target of a HeatMeister to the thermostat's setpoint.
+- **Error**: setting the thermostat or a HeatMeister failed.
 
 ### Settings
 
@@ -62,7 +63,7 @@ One line for every event, the last 500 are kept:
 | **HeatMeisters** | Found automatically from their entity names (`sensor.heatbooster_<room>_temp_inlet`, `…_fan_control_state`, …; newer installs use `heatmeister_`; ids that end in `_2`, `_3`, … are found too). Tick the ones to show on the Home page (and to send the temperature to). At most 6. |
 | **Follows (MQTT slave of)** (per HeatMeister) | For a HeatMeister that is an MQTT slave of another one (the master). A slave often has no values of its own; Home then says which master it follows and shows it as running when the master runs. A HeatMeister that shows "slave" is suggested to follow the first HeatMeister that is not a slave. The master must be ticked too, and cannot be a slave itself. |
 | **MQTT topic** (per HeatMeister) | Where the HeatMeister listens for the temperature from outside. Default `<Name>/temp-ambient-ext`, for example `Woonkamer-garage/temp-ambient-ext`. Topics are case-sensitive: copy the exact topic your HeatMeister uses (for example `woonkamer-gang/temp-ambient-ext`). No `+` or `#`. |
-| **Send to the HeatMeisters** | *The thermostat's setpoint* (default, like a Node-RED flow that forwards the target temperature) or *A room temperature*. |
+| **Send to the HeatMeisters** | *A room temperature* (default: the HeatMeister uses it as the measured room temperature, like a Node-RED flow that forwards the tado's room temperature) or *The thermostat's setpoint*. |
 | **Take the room temperature from** | Only with *A room temperature*: the thermostat's own room temperature, or another temperature sensor. |
 | **Send it every** | Seconds (5–600, default 15). HeatMeisters expect the value regularly; a Node-RED flow typically sends it every 15 seconds. The app also sends it right away when the thermostat's setpoint or the value changes. |
 | **A change on the thermostat itself is kept** | With control on: when someone turns the tado (or the tado app) to another temperature, the app keeps it *until the next switch point* (default) or *for the default hold length*. Then it goes back to the schedule. |
@@ -85,11 +86,21 @@ The first rule that applies wins:
 
 A HeatMeister listens on MQTT, topic `<Name>/temp-ambient-ext`, for a temperature from outside. With **Send temperature to HeatMeisters** on, the app sends it:
 
-1. It takes the thermostat's setpoint (default), or a room temperature (the thermostat's own, or the sensor you chose).
+1. It takes a room temperature (default: the thermostat's own, or the sensor you chose), or the thermostat's setpoint.
 2. For every ticked HeatMeister it sends the value to its topic every few seconds (default 15, with its own timer), and right away when the thermostat's setpoint changes (by the app, by another automation or by hand) or the value changes by 0.1 °C or more.
 3. Home shows the value and, per HeatMeister, what was sent and when. If MQTT is not reachable, Home shows the error and the app tries again at the next refresh.
 
 It goes through Home Assistant's MQTT integration (`mqtt.publish`), so the app needs no MQTT login of its own.
+
+## Room target for the HeatMeisters
+
+A HeatMeister that controls the room temperature (the master) compares the room temperature with its own **room target** (`number.…_ambientcontrol_temp`). With **Set HeatMeister room target** on (Configuration tab), the app keeps that target equal to the thermostat's setpoint, for every ticked HeatMeister:
+
+1. When the setpoint changes (by the app, by another automation or by hand in the tado app), the new value goes to the HeatMeisters within a few seconds.
+2. The value stays within the HeatMeister's own limits and steps (for example 14–26 °C in steps of 0.5 °C): a setpoint of 5 °C gives 14 °C.
+3. It is only sent when the HeatMeister has another value. A change by hand on the HeatMeister is set back to the setpoint.
+4. It goes through `number.set_value` on the HeatMeister's entity; Home Assistant sends it to the HeatMeister over MQTT. For a HeatMeister with "_2" ids the one that works is used.
+5. Home shows the target and, per HeatMeister, when it was set. Activity gets a line for every change (or error).
 
 ## Controlling the thermostat
 
@@ -114,13 +125,14 @@ Limits:
 | Option | Default | What it does |
 | --- | --- | --- |
 | `allow_control` | off | Off: the app only watches. On: it sets the thermostat chosen in Settings. |
-| `allow_heatmeister_temperature` | off | **Send temperature to HeatMeisters.** On: the app sends the thermostat's setpoint (or a room temperature) to the chosen HeatMeisters over MQTT, through Home Assistant's MQTT integration. This replaces a Node-RED flow that does the same; both at the same time does no harm. |
+| `allow_heatmeister_temperature` | off | **Send temperature to HeatMeisters.** On: the app sends a room temperature (or the thermostat's setpoint) to the chosen HeatMeisters over MQTT, through Home Assistant's MQTT integration. This replaces a Node-RED flow that does the same; both at the same time does no harm. |
+| `allow_heatmeister_target` | off | **Set HeatMeister room target.** On: the app keeps the room target of the chosen HeatMeisters equal to the thermostat's setpoint (see above). Turn off a Node-RED flow that does the same. |
 | `max_writes_per_day` | 48 | The most thermostat changes in 24 hours (1–500). |
 | `refresh_seconds` | 30 | How often the app reads everything from Home Assistant as a backup (10–600). Changes of the thermostat, the persons and the chosen HeatMeisters come in right away anyway (live updates, only reading). |
 | `log_level` | info | How much the app writes to its log. |
 
 ## Safety
 
-- The app changes only two things, each behind its own option that is off by default: `climate.set_temperature` on the thermostat chosen in Settings (**Allow control**), and `mqtt.publish` of a temperature to the HeatMeister topics chosen in Settings (**Send temperature to HeatMeisters**). Everything else the app sends only reads (including asking for live updates of the chosen entities). The tests check this on every push.
+- The app changes only three things, each behind its own option that is off by default: `climate.set_temperature` on the thermostat chosen in Settings (**Allow control**), `mqtt.publish` of a temperature to the HeatMeister topics chosen in Settings (**Send temperature to HeatMeisters**), and `number.set_value` on the room target of the HeatMeisters chosen in Settings (**Set HeatMeister room target**). Everything else the app sends only reads (including asking for live updates of the chosen entities). The tests check this on every push.
 - It never changes automations, scripts, helpers or Node-RED flows, and never the thermostat's mode.
 - Only Home Assistant ingress can reach the app.

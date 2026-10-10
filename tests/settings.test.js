@@ -327,11 +327,13 @@ test('live: saving other HeatMeisters asks for live updates of the new list', as
   await refreshed();
 });
 
-test('the temperature for the HeatMeisters (setpoint) is shown, but not sent while its option is off', async () => {
+test('the temperature for the HeatMeisters (by default the room temperature) is shown, but not sent while its option is off', async () => {
   const s = await refreshed();
   assert.equal(s.roomTemperature.allowed, false);
-  assert.equal(s.roomTemperature.send, 'setpoint');
-  assert.equal(s.roomTemperature.value, s.thermostat.target);
+  assert.equal(s.roomTemperature.send, 'room');
+  assert.equal(s.roomTemperature.value, s.thermostat.current);
+  assert.equal(s.heatmeisterTarget.allowed, false);
+  assert.equal(s.heatmeisterTarget.value, s.thermostat.target);
   assert.deepEqual(fakeHa.world.mqtt, {});
 });
 

@@ -1,5 +1,5 @@
 name: Smart Heating Planner (dev)
-version: "0.4.6-dev"
+version: "0.4.7-dev"
 slug: smart_heating_planner
 description: "TEST VERSION: heats on a schedule and on who is home (tado + HeatMeister)."
 url: https://github.com/tlpeter/smart-heating-planner
@@ -17,12 +17,14 @@ homeassistant_api: true
 options:
   allow_control: false
   allow_heatmeister_temperature: false
+  allow_heatmeister_target: false
   max_writes_per_day: 48
   refresh_seconds: 30
   log_level: info
 schema:
   allow_control: bool
   allow_heatmeister_temperature: bool
+  allow_heatmeister_target: bool
   max_writes_per_day: int(1,500)
   refresh_seconds: int(10,600)
   log_level: list(debug|info|warning|error)

@@ -2,8 +2,8 @@
 
 // The real app with "Send temperature to HeatMeisters" ON (and "Allow control"
 // off), against the fake Home Assistant. Like the owner's Node-RED flow: the
-// thermostat setpoint goes to "<Name>/temp-ambient-ext" over MQTT when it
-// changes. Optional: a room temperature instead.
+// thermostat's room temperature goes to "<Name>/temp-ambient-ext" over MQTT
+// (every 15 s). Optional: the thermostat setpoint instead.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -31,7 +31,7 @@ test('nothing is sent before HeatMeisters are chosen', async () => {
   assert.equal(writes().length, 0);
 });
 
-test('by default the thermostat setpoint goes to every chosen HeatMeister', async () => {
+test('by default the thermostat room temperature goes to every chosen HeatMeister (like the Node-RED flow)', async () => {
   const r = await save({
     thermostat: 'climate.tado_smart_thermostat_ru3010610432',
     heatmeisters: [
@@ -42,25 +42,31 @@ test('by default the thermostat setpoint goes to every chosen HeatMeister', asyn
     room_temperature_interval_seconds: 600, // no timer sends during the first tests
   });
   assert.equal(r.status, 200, JSON.stringify(r.data));
-  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19'], t);
+  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19.4'], t);
   const s = await status();
-  assert.equal(s.roomTemperature.send, 'setpoint');
+  assert.equal(s.roomTemperature.send, 'room');
+  assert.equal(s.roomTemperature.source, 'thermostat');
   assert.equal(s.roomTemperature.last.sent, true);
-  assert.equal(s.heatmeisters[0].sent.value, 19);
+  assert.equal(s.heatmeisters[0].sent.value, 19.4);
+});
+
+test('"the thermostat setpoint" (if chosen) goes to every chosen HeatMeister', async () => {
+  await save({ heatmeister_send: 'setpoint' });
+  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19.4', '19'], t);
 });
 
 test('no new message while the setpoint stays the same (the room temperature does not matter)', async () => {
   fakeHa.world.room = 20.5;
   await refreshed();
-  for (const t of TOPICS) assert.equal(fakeHa.world.mqtt[t].length, 1);
+  for (const t of TOPICS) assert.equal(fakeHa.world.mqtt[t].length, 2);
 });
 
 test('a new setpoint is sent right away (like the Node-RED flow)', async () => {
   fakeHa.world.target = 21;
   await refreshed();
-  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19', '21'], t);
+  for (const t of TOPICS) assert.deepEqual(fakeHa.world.mqtt[t], ['19.4', '19', '21'], t);
   await refreshed();
-  assert.equal(fakeHa.world.mqtt[TOPICS[0]].length, 2, 'no repeat while the setpoint stays');
+  assert.equal(fakeHa.world.mqtt[TOPICS[0]].length, 3, 'no repeat while the setpoint stays');
 });
 
 test('"a room temperature": the thermostat room temperature, also on a new setpoint', async () => {

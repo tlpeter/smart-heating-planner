@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        file: [settings.test.js, control-app.test.js, heatmeister-app.test.js, schedule.test.js, control.test.js, presence.test.js, decide.test.js, heatmeister.test.js, entities.test.js, persistence.test.js]
+        file: [settings.test.js, control-app.test.js, heatmeister-app.test.js, heatmeister-target-app.test.js, schedule.test.js, control.test.js, presence.test.js, decide.test.js, heatmeister.test.js, entities.test.js, persistence.test.js]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6

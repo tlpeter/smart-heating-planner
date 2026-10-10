@@ -116,6 +116,47 @@ function withMqtt(st) {
   return st;
 }
 
+// With "Set HeatMeister room target" on: keep the room target of every
+// chosen HeatMeister equal to the thermostat's setpoint (like the owner's
+// Node-RED flow, which did number.set_value on a new setpoint).
+let targetBusy = false;
+async function setTargets(states, st, now) {
+  if (targetBusy || !st || !st.ready) return st;
+  targetBusy = true;
+  try {
+    const s = settings.get();
+    memory.hmTarget = memory.hmTarget || {};
+    const setpoint = st.thermostat && st.thermostat.available ? st.thermostat.target : null;
+    const entities = s.heatmeisters.map((h) => ({ prefix: h.prefix, entity: heatmeister.targetEntity(states, h.prefix) }));
+    const allowed = entities.map((x) => x.entity && x.entity.entity_id).filter(Boolean);
+    for (const { entity } of entities) {
+      if (!entity) continue;
+      const last = memory.hmTarget[entity.entity_id];
+      const v = heatmeister.targetToSend({ setpoint, entity, last, now });
+      if (v === null) continue;
+      try {
+        await ha.setHeatmeisterTarget(entity.entity_id, v, allowed);
+        memory.hmTarget[entity.entity_id] = { value: v, at: now };
+        activity.add({ event: 'hm-target', target: v, source: 'heatmeister', reason: `${entity.entity_id}: room target set to the thermostat's setpoint`, thermostat: setpoint, sent: true }, now);
+      } catch (err) {
+        ha.warn('Setting the HeatMeister room target failed:', entity.entity_id, err.message);
+        memory.hmTarget[entity.entity_id] = { value: v, at: now, error: err.message };
+        activity.add({ event: 'error', target: v, source: 'heatmeister', reason: `${entity.entity_id}: ${err.message}`, thermostat: setpoint, sent: false }, now);
+      }
+    }
+    for (const id of Object.keys(memory.hmTarget)) if (!allowed.includes(id)) delete memory.hmTarget[id];
+    saveMemory();
+    st.heatmeisterTarget = { allowed: true, value: setpoint };
+    st.heatmeisters = st.heatmeisters.map((h) => {
+      const e = entities.find((x) => x.prefix === h.prefix);
+      return { ...h, target_entity: e && e.entity ? e.entity.entity_id : null, target_sent: e && e.entity ? memory.hmTarget[e.entity.entity_id] || null : null };
+    });
+    return st;
+  } finally {
+    targetBusy = false;
+  }
+}
+
 async function sendRoomTemperature(st, now) {
   await publishAll(st.roomTemperature.value, st.thermostat, now);
   return withMqtt(st);
@@ -230,6 +271,7 @@ function evaluate(states, now = Date.now()) {
     hold,
     demand,
     heatmeisters,
+    heatmeisterTarget: { allowed: options.allow_heatmeister_target, value: thermostat.available ? thermostat.target : null },
     roomTemperature: {
       allowed: options.allow_heatmeister_temperature,
       value: roomTemp,
@@ -349,6 +391,7 @@ async function refresh() {
     let st = evaluate(states, now);
     if (options.allow_control && settings.get().thermostat) st = await act(states, st, now);
     if (options.allow_heatmeister_temperature && settings.get().heatmeisters.length) st = await sendRoomTemperature(st, now);
+    if (options.allow_heatmeister_target && settings.get().heatmeisters.length) st = await setTargets(states, st, now);
     status = st;
   } catch (err) {
     ha.warn('Refresh failed:', err.message);

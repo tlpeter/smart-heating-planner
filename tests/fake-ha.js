@@ -14,7 +14,8 @@
 //   "slave" but has its own values, and Woonkamer-gang has no control state.
 //   Their outside
 //   room temperature comes over MQTT (topic "<Name>/temp-ambient-ext");
-//   mqtt.publish is recorded in world.mqtt.
+//   mqtt.publish is recorded in world.mqtt. number.set_value on a room
+//   target (..._ambientcontrol_temp, "_2" for Woonkamer-voor) changes it.
 // Change `world` to change the house. Every command the app sends is
 // recorded in `calls`; the tests check what was written.
 // climate.set_temperature changes world.target (both thermostat entities
@@ -35,6 +36,7 @@ function freshWorld() {
     homekitAvailable: true,
     failWrites: false,
     failMqtt: false,
+    failHmTarget: false,
     mqtt: {}, // topic -> [payloads] sent by the app
     // Where each person's GPS tracker is: 'home', 'not_home', a zone name or 'unknown'.
     persons: { peter: 'home', yvonne: 'not_home', cheyenne: 'not_home' },
@@ -190,6 +192,14 @@ function start(port = 0) {
         if (msg.type === 'call_service' && msg.domain === 'climate' && msg.service === 'set_temperature') {
           if (world.failWrites) return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'home_assistant_error', message: 'Thermostat did not answer' } }));
           world.target = Number(msg.service_data.temperature);
+          return ok({ context: { id: 'x' } });
+        }
+        // The room target of a HeatMeister (Home Assistant sends it over MQTT).
+        if (msg.type === 'call_service' && msg.domain === 'number' && msg.service === 'set_value') {
+          const id = msg.target && msg.target.entity_id;
+          const h = world.hm.find((x) => id === `number.heatbooster_${x.id}_ambientcontrol_temp${x.suffix2 ? '_2' : ''}`);
+          if (!h || world.failHmTarget) return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'home_assistant_error', message: 'Entity not found or not reachable' } }));
+          h.roomTarget = Number(msg.service_data.value);
           return ok({ context: { id: 'x' } });
         }
         if (msg.type === 'call_service' && msg.domain === 'mqtt' && msg.service === 'publish') {

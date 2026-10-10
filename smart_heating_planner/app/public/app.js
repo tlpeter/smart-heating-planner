@@ -59,8 +59,8 @@ const SOURCE_LOOK = {
 };
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_NAMES = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
-const EVENT = { advice: 'Advice', sent: 'Sent', manual: 'Changed by hand', error: 'Error' };
-const SOURCE = { schedule: 'Schedule', away: 'Away', preheat: 'Preheat', approaching: 'On the way', hold: 'Manual hold' };
+const EVENT = { advice: 'Advice', sent: 'Sent', manual: 'Changed by hand', error: 'Error', 'hm-target': 'HeatMeister target' };
+const SOURCE = { schedule: 'Schedule', away: 'Away', preheat: 'Preheat', approaching: 'On the way', hold: 'Manual hold', heatmeister: 'HeatMeister' };
 
 let settings = null;
 let entities = null;
@@ -198,8 +198,12 @@ function renderStatus(s) {
   const rtLine = !hms.length ? '' : rt.allowed
     ? `<p class="muted small">For the HeatMeisters: <b>${v(rt.value)}</b> · ${what}${rt.last && rt.last.error ? ` · <span style="color:rgb(var(--rgb-red))">sending failed: ${esc(rt.last.error)}</span>` : ''}</p>`
     : `<p class="muted small">For the HeatMeisters: <b>${v(rt.value)}</b> · ${what} · not sent by the app (option "Send temperature to HeatMeisters" is off).</p>`;
+  const ht = s.heatmeisterTarget || {};
+  const htLine = !hms.length ? '' : ht.allowed
+    ? `<p class="muted small">Room target for the HeatMeisters: <b>${v(ht.value)}</b> · the thermostat's setpoint, set by the app</p>`
+    : '';
   $('hm-list').innerHTML = hms.length
-    ? `<p class="muted small">Thermostat asks for heat: <b>${s.demand ? 'yes' : 'no'}</b></p>` + rtLine + hms.map((h) => `
+    ? `<p class="muted small">Thermostat asks for heat: <b>${s.demand ? 'yes' : 'no'}</b></p>` + rtLine + htLine + hms.map((h) => `
       <div class="hm">
         <span class="shape" data-fan="${esc(h.prefix)}"></span>
         <div class="txt"><div class="primary">${esc(h.name)} <span class="muted small">· ${esc(h.follows ? `slave of ${h.follows}` : !h.available ? 'unavailable' : h.control_state === 'slave' ? 'slave' : (h.control_state || 'no control state'))}</span></div>
@@ -210,6 +214,7 @@ function renderStatus(s) {
             <span>Room <b>${v(h.room)}</b>${h.room_control ? ` · target ${v(h.room_target)}` : ''}</span>
             <span>Fan <b>${h.fan_speed == null ? '–' : `${h.fan_speed} %`}</b>${h.boost ? ' · boost' : ''}${h.manual ? ' · manual' : ''}</span>
             ${rt.allowed && h.sent ? `<span>Sent <b>${v(h.sent.value)}</b> · ${ago(h.sent.at)}</span>` : ''}
+            ${ht.allowed && h.target_sent ? `<span>Target set <b>${v(h.target_sent.value)}</b> · ${ago(h.target_sent.at)}${h.target_sent.error ? ` · <span style="color:rgb(var(--rgb-red))">failed</span>` : ''}</span>` : ''}
           </div>
         </div>
         <span class="pill ${h.running ? 'change' : 'off'}">${h.running ? 'running' : 'off'}</span>
@@ -394,7 +399,7 @@ async function loadSettingsPage() {
   $('s-room-source').innerHTML = `<option value="">The thermostat's room temperature</option>` + entities.temperatures.map((t) =>
     `<option value="${esc(t.entity_id)}" ${t.entity_id === s.room_temperature_source ? 'selected' : ''}>${esc(t.name)} (${esc(t.state)} °C)</option>`).join('');
   $('s-room-interval').value = s.room_temperature_interval_seconds;
-  $('s-hm-send').value = s.heatmeister_send || 'setpoint';
+  $('s-hm-send').value = s.heatmeister_send || 'room';
   $('s-room-source-label').classList.toggle('hidden', $('s-hm-send').value !== 'room');
   $('s-room-note').innerHTML = (status && status.roomTemperature && status.roomTemperature.allowed)
     ? 'The app sends this temperature to each ticked HeatMeister over MQTT (Home Assistant\'s MQTT integration): every few seconds (default 15, like the Node-RED flow), and right away when the thermostat setpoint or the value changes.'

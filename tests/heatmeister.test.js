@@ -152,3 +152,29 @@ test('entity ids of one HeatMeister: also the "_2" ones, not the WiFi values', (
   assert.ok(!ids.some((id) => /_rssi|_ip/.test(id)));
   assert.deepEqual(entityIds(fakeHa.states(), 'heatbooster_nope'), []);
 });
+
+test('room target: the setpoint, within the HeatMeister limits and steps, only when it differs', () => {
+  const e = { entity_id: 'number.x_ambientcontrol_temp', value: 19, min: 14, max: 26, step: 0.5 };
+  const now = 1000000;
+  assert.equal(hm.targetToSend({ setpoint: 20, entity: e, last: null, now }), 20);
+  assert.equal(hm.targetToSend({ setpoint: 19, entity: e, last: null, now }), null, 'already right');
+  assert.equal(hm.targetToSend({ setpoint: 5, entity: e, last: null, now }), 14, 'not below its minimum');
+  assert.equal(hm.targetToSend({ setpoint: 30, entity: e, last: null, now }), 26, 'not above its maximum');
+  assert.equal(hm.targetToSend({ setpoint: 20.3, entity: e, last: null, now }), 20.5, 'in its steps');
+  assert.equal(hm.targetToSend({ setpoint: null, entity: e, last: null, now }), null, 'no setpoint');
+  assert.equal(hm.targetToSend({ setpoint: 20, entity: null, last: null, now }), null, 'no target entity');
+  // Just sent and Home Assistant does not show it yet: wait a minute.
+  assert.equal(hm.targetToSend({ setpoint: 20, entity: e, last: { value: 20, at: now - 5000 }, now }), null);
+  assert.equal(hm.targetToSend({ setpoint: 20, entity: e, last: { value: 20, at: now - 61000 }, now }), 20);
+  assert.equal(hm.targetToSend({ setpoint: 20, entity: e, last: { value: 20, at: now - 5000, error: 'x' }, now }), 20, 'after a failure: again');
+});
+
+test('room target entity: the working one ("_2" for Woonkamer-voor), with its limits', () => {
+  const t = hm.targetEntity(fakeHa.states(), 'heatbooster_woonkamer_voor');
+  assert.equal(t.entity_id, 'number.heatbooster_woonkamer_voor_ambientcontrol_temp_2');
+  assert.equal(t.value, 20);
+  assert.equal(t.min, 14);
+  assert.equal(t.max, 26);
+  assert.equal(t.step, 0.5);
+  assert.equal(hm.targetEntity(fakeHa.states(), 'heatbooster_nope'), null);
+});
