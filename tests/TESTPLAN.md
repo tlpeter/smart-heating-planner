@@ -12,6 +12,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Control (Allow control on) | 10 of 10 ✓ |
 | HeatMeister temperature (MQTT on) | 10 of 10 ✓ |
 | HeatMeister room target (option on) | 7 of 7 ✓ |
+| Notifications | 9 of 9 ✓ |
 | Week schedule | 10 of 10 ✓ |
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
@@ -21,7 +22,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.4.11.
+Version: 0.5.1.
 
 ## Settings and situations
 
@@ -105,6 +106,22 @@ The real app with "Set HeatMeister room target" on: like the Node-RED flow, the 
 - ✓ a setpoint below the HeatMeister minimum (14 °C) gives its minimum
 - ✓ a failing HeatMeister is shown and tried again at the next refresh
 - ✓ SAFETY: only number.set_value, only on the room targets of the chosen HeatMeisters
+
+## Notifications
+
+More recipients (phones), each with its own notify action and messages, Android Auto (car_ui) and high importance; what is sent when everyone leaves, someone comes home, the heating changes or the thermostat is changed by hand; only to the chosen notify actions.
+
+`node tests/notify-app.test.js`
+
+- ✓ nothing is sent without recipients
+- ✓ the notify actions of Home Assistant are offered, phones first; the messages come in groups
+- ✓ recipients are checked and saved: more phones, own messages, Android Auto and importance per phone
+- ✓ a test goes to one phone, with the radiator icon, Android Auto and high importance
+- ✓ everyone leaves: "Nobody home" and the heating change; a phone without that message does not get it
+- ✓ someone comes home: "<name> is home"
+- ✓ a change on the thermostat by hand is reported
+- ✓ a phone that does not answer does not stop the heating
+- ✓ SAFETY: notifications only go to the chosen phones; nothing else but the thermostat is written
 
 ## Week schedule
 
