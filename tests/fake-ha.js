@@ -24,7 +24,7 @@
 const path = require('path');
 const WebSocket = require(path.join(__dirname, '..', 'smart_heating_planner', 'app', 'node_modules', 'ws'));
 
-const HA_VERSION = process.env.SHP_HA_VERSION || '2026.10.0';
+const HA_VERSION = process.env.SHP_HA_VERSION || '2026.10.1';
 const TZ = 'Europe/Amsterdam';
 const HOME = { lat: 51.37, lon: 5.19 };
 
