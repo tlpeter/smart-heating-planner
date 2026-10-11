@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1-dev
+
+- **Notifications** (Settings › Notifications), like Smart Charging Planner: more recipients (phones), each with its own notify action and its own messages, in three groups (Problems, Heating, Who is home). Per phone: **Show in Android Auto** and **High importance**, both on. Every message has the radiator icon. **Send test** per phone.
+
 ## 0.4.11-dev
 
 - Chart: up to **6** extra temperature sensors (was 3). Click a name above the chart to show or hide that line; your browser remembers it. Of new sensors the first 3 are shown.

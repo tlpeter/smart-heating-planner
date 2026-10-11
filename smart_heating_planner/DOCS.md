@@ -74,6 +74,32 @@ One line for every event, the last 500 are kept:
 
 "Thermostat asks for heat" comes from the thermostat's `hvac_action` attribute (`heating`). The HomeKit tado thermostat reports it.
 
+### Notifications (Settings)
+
+Messages to phones with the Home Assistant Companion App, like Smart Charging Planner. Nothing is sent until you add a recipient.
+
+1. Click **Add recipient**, give it a name and choose its **Notify action** (for example `notify.mobile_app_peters_phone`; phones are listed first).
+2. **Show in Android Auto**: the message also shows on the car's screen (`car_ui: true`). **High importance**: the phone shows it right away (`importance: high`). Both are on by default; an iPhone ignores them. Every message has the radiator icon (`notification_icon: mdi:radiator`).
+3. Choose the messages, per group (tick the group to turn all its messages on or off):
+
+| Group | Message | When |
+| --- | --- | --- |
+| Problems | Setting the thermostat failed | At most once an hour. |
+| | Thermostat not reachable / reachable again | After 10 minutes unavailable, and when it is back. |
+| | Daily limit of changes reached | At most every 6 hours. |
+| | HeatMeister room target not set | At most once an hour per HeatMeister. |
+| | Temperature to the HeatMeisters not sent | MQTT failed; at most once an hour. |
+| Heating | Heating goes to another temperature | The advice changes (with "Allow control" off it says it is advice only). |
+| | Changed on the thermostat by hand | With the temperature and until when it is kept. |
+| | Manual hold ended | |
+| Who is home | Everyone left | The last person who counts left. |
+| | Someone is home again | The first person came home. |
+| | Someone is on the way home | Per person, at most every 30 minutes. |
+
+4. Click **Save notifications**, then **Send test** to check a phone.
+
+You can add up to 10 recipients. A phone that does not answer never stops the heating; the card shows "not sent" with the reason.
+
 ## How the advice is made
 
 The first rule that applies wins:
@@ -135,6 +161,7 @@ Limits:
 
 ## Safety
 
+- Notifications go only to the notify actions chosen in Settings › Notifications.
 - The app changes only three things, each behind its own option that is off by default: `climate.set_temperature` on the thermostat chosen in Settings (**Allow control**), `mqtt.publish` of a temperature to the HeatMeister topics chosen in Settings (**Send temperature to HeatMeisters**), and `number.set_value` on the room target of the HeatMeisters chosen in Settings (**Set HeatMeister room target**). Everything else the app sends only reads (including asking for live updates of the chosen entities and reading the history for the chart). The tests check this on every push.
 - It never changes automations, scripts, helpers or Node-RED flows, and never the thermostat's mode.
 - Only Home Assistant ingress can reach the app.

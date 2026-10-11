@@ -11,6 +11,7 @@ const controller = require('./controller');
 const holdStore = require('./hold');
 const activity = require('./activity');
 const history = require('./history');
+const notifier = require('./notify');
 const schedule = require('./schedule');
 const { detect } = require('./entities');
 const diagnostics = require('./diagnostics');
@@ -72,6 +73,18 @@ async function loadEntities() {
   return detect(states, entities);
 }
 
+// The notify actions that exist in Home Assistant, for the choice list
+// (phones first).
+async function notifyOptions() {
+  const services = await ha.call({ type: 'get_services' });
+  const n = (services && services.notify) || {};
+  return Object.keys(n)
+    .filter((k) => k !== 'send_message') // needs a notify entity, not usable like this
+    .map((k) => ({ id: `notify.${k}`, name: (n[k] && n[k].name) || k }))
+    .sort((a, b) => (a.id.startsWith('notify.mobile_app_') ? 0 : 1) - (b.id.startsWith('notify.mobile_app_') ? 0 : 1) || a.id.localeCompare(b.id));
+}
+function badRequest(message) { return Object.assign(new Error(message), { status: 400 }); }
+
 async function api(req, res, url) {
   const p = url.pathname;
   if (req.method === 'GET' && p === '/api/status') {
@@ -122,6 +135,29 @@ async function api(req, res, url) {
       return sendJson(res, 502, { error: `Could not read the history: ${err.message}` });
     }
   }
+  if (req.method === 'GET' && p === '/api/notify') {
+    let choices = [];
+    try { choices = await notifyOptions(); } catch (err) { ha.warn('Could not list notify actions:', err.message); }
+    return sendJson(res, 200, { ...notifier.status(), choices });
+  }
+  if (req.method === 'POST' && p === '/api/notify') {
+    const body = await readBody(req);
+    const choices = (await notifyOptions()).map((c) => c.id);
+    const list = notifier.cleanRecipients(body.recipients, choices);
+    notifier.save(list);
+    ha.log(list.length ? `Notifications go to ${list.length} recipient(s)` : 'Notifications switched off');
+    return sendJson(res, 200, notifier.status());
+  }
+  if (req.method === 'POST' && p === '/api/notify/test') {
+    const body = await readBody(req).catch(() => ({}));
+    const list = notifier.recipients();
+    if (!list.length) throw badRequest('Add a recipient (notify action) first');
+    const only = body && body.recipient_id ? String(body.recipient_id) : null;
+    if (only && !list.some((r) => r.id === only)) throw badRequest('Save this recipient first');
+    const r = await notifier.notify('test', 'Smart Heating test', 'This is a test notification from Smart Heating Planner.', { only });
+    if (!r.sent) throw badRequest(`Not sent: ${r.error || r.reason}`);
+    return sendJson(res, 200, { ok: true, results: r.results });
+  }
   if (req.method === 'GET' && p === '/api/activity') return sendJson(res, 200, activity.recent(200));
   if (req.method === 'GET' && p === '/api/diagnostics') {
     const body = {
@@ -130,6 +166,7 @@ async function api(req, res, url) {
       created: new Date().toISOString(),
       options,
       settings: diagnostics.redact(settings.get()),
+      notifications: diagnostics.redact({ recipients: notifier.recipients().map((r) => ({ service: r.service, off: r.off, car_ui: r.car_ui, high: r.high })) }),
       status: diagnostics.redact(diagnostics.summarisePresence(controller.getStatus())),
       activity: diagnostics.redact(activity.recent(50)),
       log: ha.recentLog().map(diagnostics.redactLine),

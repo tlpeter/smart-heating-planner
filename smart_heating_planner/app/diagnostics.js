@@ -24,6 +24,8 @@ function redact(value, key = '') {
       // person.peter -> person.[removed]: a person entity is a name.
       .replace(/person\.[a-z0-9_]+/g, 'person.[removed]')
       .replace(/device_tracker\.[a-z0-9_]+/g, 'device_tracker.[removed]')
+      // notify.mobile_app_peters_phone: a phone name.
+      .replace(/notify\.[a-z0-9_]+/g, 'notify.[removed]')
       .replace(EMAIL, '[email removed]')
       .replace(COORD, '[place removed]');
   }

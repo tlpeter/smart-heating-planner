@@ -220,6 +220,19 @@
           <span id="settings-msg" class="small"></span>
         </div>
       </form>
+
+      <div class="card" id="notify-card">
+        <h2><span class="shape sm c-orange" data-icon="bell"></span>Notifications</h2>
+        <p class="muted small">Messages to phones with the Home Assistant Companion App (notify.mobile_app_…). Add one recipient per phone; each chooses its own messages and whether they show in Android Auto.</p>
+        <p id="notify-state" class="muted small"></p>
+        <div id="notify-list"></div>
+        <div class="actions">
+          <button class="btn" type="button" id="notify-add">Add recipient</button>
+          <button class="btn primary" type="button" id="notify-save">Save notifications</button>
+          <span id="notify-msg" class="small"></span>
+        </div>
+        <p class="muted small">Last notification: <span id="notify-last">–</span></p>
+      </div>
     </section>
   </main>
   <script src="app.js"></script>
