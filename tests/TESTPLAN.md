@@ -11,18 +11,18 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Settings and situations | 28 of 28 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
 | HeatMeister temperature (MQTT on) | 10 of 10 ✓ |
-| HeatMeister room target (option on) | 7 of 7 ✓ |
-| Notifications | 9 of 9 ✓ |
-| Week schedule | 10 of 10 ✓ |
+| HeatMeister room target (option on) | 8 of 8 ✓ |
+| Notifications | 10 of 10 ✓ |
+| Week schedule | 11 of 11 ✓ |
 | Presence | 13 of 13 ✓ |
 | Decision | 10 of 10 ✓ |
-| When to send | 8 of 8 ✓ |
+| When to send | 9 of 9 ✓ |
 | HeatMeisters | 18 of 18 ✓ |
 | Chart | 4 of 4 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.5.1.
+Version: 0.5.2.
 
 ## Settings and situations
 
@@ -104,7 +104,8 @@ The real app with "Set HeatMeister room target" on: like the Node-RED flow, the 
 - ✓ nothing is sent again while the target is right
 - ✓ a new setpoint (also from the tado app) goes to the HeatMeisters by itself, without a refresh from the page
 - ✓ a setpoint below the HeatMeister minimum (14 °C) gives its minimum
-- ✓ a failing HeatMeister is shown and tried again at the next refresh
+- ✓ a failing HeatMeister is shown and tried again after a while, not on every refresh
+- ✓ a thermostat without a setpoint (null) sends nothing, not 0 °C
 - ✓ SAFETY: only number.set_value, only on the room targets of the chosen HeatMeisters
 
 ## Notifications
@@ -120,6 +121,7 @@ More recipients (phones), each with its own notify action and messages, Android 
 - ✓ everyone leaves: "Nobody home" and the heating change; a phone without that message does not get it
 - ✓ someone comes home: "<name> is home"
 - ✓ a change on the thermostat by hand is reported
+- ✓ a phone that loses its location does not say "<name> is home"
 - ✓ a phone that does not answer does not stop the heating
 - ✓ SAFETY: notifications only go to the chosen phones; nothing else but the thermostat is written
 
@@ -139,6 +141,7 @@ Which switch point is valid when, across midnight, the week and daylight saving 
 - ✓ daylight saving: the clock time is used, not UTC
 - ✓ validation refuses wrong times, temperatures and doubles, and sorts
 - ✓ validation needs at least one switch point and at most 12 per day
+- ✓ daylight saving: the next switch point is at its clock time, not an hour off
 
 ## Presence
 
@@ -191,6 +194,7 @@ The rules for writing to the thermostat and for noticing a change by hand.
 - ✓ a change by hand: the thermostat shows something else than the app set
 - ✓ no change by hand right after a write (the thermostat may still be busy)
 - ✓ no change by hand without an earlier write, or when unavailable
+- ✓ the same target is not sent again before the thermostat had time to show it (a change by hand is kept)
 
 ## HeatMeisters
 
