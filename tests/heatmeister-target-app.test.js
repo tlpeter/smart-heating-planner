@@ -27,7 +27,7 @@ const writes = () => fakeHa.calls.filter((c) => c.type === 'call_service');
 const targets = () => fakeHa.world.hm.map((h) => h.roomTarget);
 
 test.before(async () => {
-  app = await startApp({ port: PORT, options: { allow_heatmeister_target: true }, env: { SHP_LIVE_MS: '50' } });
+  app = await startApp({ port: PORT, options: { allow_heatmeister_target: true }, env: { SHP_LIVE_MS: '50', SHP_TARGET_RETRY_MS: '400' } });
 });
 test.after(() => { if (app) app.stop(); });
 
@@ -81,19 +81,31 @@ test('a setpoint below the HeatMeister minimum (14 °C) gives its minimum', asyn
   assert.deepEqual(targets(), [19, 19, 19]);
 });
 
-test('a failing HeatMeister is shown and tried again at the next refresh', async () => {
+test('a failing HeatMeister is shown and tried again after a while, not on every refresh', async () => {
   fakeHa.world.failHmTarget = true;
   fakeHa.world.target = 21;
   let s = await refreshed();
   assert.ok(s.heatmeisters[0].target_sent.error);
   const n = writes().length;
   await refreshed();
-  // A failure is not counted as "just sent": tried again.
-  assert.ok(writes().length > n);
+  await refreshed();
+  assert.equal(writes().length, n, 'asked again right away');
   fakeHa.world.failHmTarget = false;
+  await sleep(450); // the retry wait (60 s in the app, short in this test)
   s = await refreshed();
   assert.deepEqual(targets(), [21, 21, 21]);
   assert.equal(s.heatmeisters[0].target_sent.error, undefined);
+});
+
+test('a thermostat without a setpoint (null) sends nothing, not 0 °C', async () => {
+  const n = writes().length;
+  fakeHa.world.target = null;
+  const s = await refreshed();
+  assert.equal(s.thermostat.target, null);
+  assert.equal(writes().length, n);
+  assert.deepEqual(targets(), [21, 21, 21]);
+  fakeHa.world.target = 21;
+  await refreshed();
 });
 
 test('SAFETY: only number.set_value, only on the room targets of the chosen HeatMeisters', () => {

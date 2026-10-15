@@ -91,6 +91,21 @@ function localParts(date, timeZone) {
   return { day, minutes: Number(get('hour')) * 60 + Number(get('minute')) };
 }
 
+// The exact moment (ms) of a wall-clock time in a time zone, also around a
+// daylight saving change. y/m/d may overflow (day 32 = the next month).
+function zonedTime(y, m, d, h, min, timeZone) {
+  const wall = Date.UTC(y, m - 1, d, h, min);
+  const offsetAt = (t) => {
+    const p = new Intl.DateTimeFormat('en-GB', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(t));
+    const g = (type) => Number(p.find((x) => x.type === type).value);
+    return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute')) - Math.floor(t / 60000) * 60000;
+  };
+  let t = wall - offsetAt(wall);
+  const t2 = wall - offsetAt(t); // a second pass when the first guess crossed the change
+  if (t2 !== t) t = t2;
+  return t;
+}
+
 // All switch points of the week, sorted by minute of the week.
 function flatten(schedule) {
   const out = [];
@@ -118,8 +133,14 @@ function current(schedule, now, timeZone) {
   const nxt = idx + 1 < points.length ? points[idx + 1] : points[0];
   let inMinutes = nxt.weekMinute - nowWm;
   if (inMinutes <= 0) inMinutes += WEEK;
-  // Whole minutes: the seconds of "now" are dropped.
-  const at = Math.floor(date.getTime() / 60000) * 60000 + inMinutes * 60000;
+  // The exact moment of the next switch point on the clock of the time zone,
+  // so a daylight saving change in between does not move it by an hour.
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+  const g = (type) => Number(p.find((x) => x.type === type).value);
+  const daysAhead = Math.floor((minutes + inMinutes) / 1440);
+  const nm = toMinutes(nxt.time);
+  const at = zonedTime(g('year'), g('month'), g('day') + daysAhead, Math.floor(nm / 60), nm % 60, timeZone);
+  inMinutes = Math.max(1, Math.round((at - Math.floor(date.getTime() / 60000) * 60000) / 60000));
   const strip = (p) => ({ day: p.day, time: p.time, temp: p.temp, preheat: p.preheat === true, id: `${p.day}-${p.time}` });
   return { current: strip(cur), next: { ...strip(nxt), inMinutes, at } };
 }

@@ -108,6 +108,22 @@ test('a change on the thermostat by hand is reported', async () => {
   assert.match(n.message, /Kept at 22 °C until/);
 });
 
+test('a phone that loses its location does not say "<name> is home"', async () => {
+  // Hold from the test before ended, so the advice follows presence again.
+  await req('DELETE', '/api/hold');
+  fakeHa.world.persons = { peter: 'not_home', yvonne: 'not_home', cheyenne: 'not_home' };
+  await sleep(100);
+  await refreshed();
+  await sleep(100);
+  fakeHa.world.notifications = [];
+  fakeHa.world.persons.peter = 'unknown';
+  await sleep(100);
+  await refreshed();
+  await sleep(100);
+  const titles = sent().map((n) => n.title);
+  assert.ok(!titles.some((t) => / is home$/.test(t)), titles.join(' | '));
+});
+
 test('a phone that does not answer does not stop the heating', async () => {
   fakeHa.world.failNotify = true;
   const r = await req('POST', '/api/notify/test', { recipient_id: 'r1' });

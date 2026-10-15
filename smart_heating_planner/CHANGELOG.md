@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.2-dev
+
+Fixes after a check of the code:
+- A change by hand on the tado shortly after the app set it (within 3 minutes) could be overwritten. Now the app waits until the tado shows its value, and then keeps your change.
+- A thermostat without a setpoint (for example when it is off) was read as 0 °C; then 14 °C went to the HeatMeisters. Now nothing is sent.
+- A HeatMeister that does not answer was asked every few seconds (and filled the Activity page). Now at most once a minute.
+- Notifications: "<name> is home" no longer comes when a phone only loses its location, and "Heating …" only when the temperature changes (not for a new reason with the same temperature, and not next to "Changed on the thermostat").
+- Live updates could be asked twice at the same time; a manual hold could show the old state for a moment.
+- Daylight saving: the next switch point (and a hold "until the next switch point") is no longer an hour off on the night the clocks change.
+
 ## 0.5.1-dev
 
 - **Notifications** (Settings › Notifications), like Smart Charging Planner: more recipients (phones), each with its own notify action and its own messages, in three groups (Problems, Heating, Who is home). Per phone: **Show in Android Auto** and **High importance**, both on. Every message has the radiator icon. **Send test** per phone.

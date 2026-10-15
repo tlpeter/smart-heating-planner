@@ -30,6 +30,11 @@ function shouldSend({ now, advice, thermostat, memory, maxWritesPerDay }) {
   if (!advice.change) return { send: false, why: 'already matches' };
   const writes = (memory.writes || []).filter((t) => now - t < DAY_MS);
   if (memory.lastSent && now - memory.lastSent.at < MIN_GAP_MS) return { send: false, why: 'waiting a moment after the last change' };
+  // The same target again before the thermostat had time to show it: wait.
+  // Otherwise a change by hand in that time would be overwritten unnoticed.
+  if (memory.lastSent && now - memory.lastSent.at < SETTLE_MS && advice.target === memory.lastSent.temp) {
+    return { send: false, why: 'waiting for the thermostat to show the last change' };
+  }
   if (writes.length >= maxWritesPerDay) return { send: false, why: `limit of ${maxWritesPerDay} changes per 24 hours reached` };
   return { send: true };
 }

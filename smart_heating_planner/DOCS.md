@@ -126,7 +126,7 @@ A HeatMeister that controls the room temperature (the master) compares the room 
 
 1. When the setpoint changes (by the app, by another automation or by hand in the tado app), the new value goes to the HeatMeisters within a few seconds.
 2. The value stays within the HeatMeister's own limits and steps (for example 14–26 °C in steps of 0.5 °C): a setpoint of 5 °C gives 14 °C.
-3. It is only sent when the HeatMeister has another value. A change by hand on the HeatMeister is set back to the setpoint.
+3. It is only sent when the HeatMeister has another value; the same value at most once a minute, also when it failed. A change by hand on the HeatMeister is set back to the setpoint.
 4. It goes through `number.set_value` on the HeatMeister's entity; Home Assistant sends it to the HeatMeister over MQTT. For a HeatMeister with "_2" ids the one that works is used.
 5. Home shows the target and, per HeatMeister, when it was set. Activity gets a line for every change (or error).
 
@@ -140,7 +140,7 @@ With **Allow control** on, every refresh:
 Limits:
 
 - Only when the target really differs (0.5 °C steps).
-- At least 2 minutes between two changes.
+- At least 2 minutes between two changes, and the same temperature not again within 3 minutes (the time the thermostat gets to show it), so a change by hand in those minutes is kept.
 - Never more than **Most changes per 24 hours**. A failed try counts too, so a broken thermostat is not hammered.
 - Not when the thermostat is off or unavailable. The app never changes the thermostat's mode (heat/off/auto).
 

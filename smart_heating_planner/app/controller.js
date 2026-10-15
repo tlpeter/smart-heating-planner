@@ -34,8 +34,7 @@ let status = { ready: false, message: 'Starting…' };
 let lastControl = null; // { at, sent, why, error }
 let lastMqtt = null; // { at, sent, error }
 let timer = null;
-let busy = false;
-let again = false; // a change came in during a refresh: refresh once more
+let running = null; // the refresh that runs now (a promise)
 
 // Live updates: Home Assistant tells the app when the thermostat, a chosen
 // HeatMeister or a person changes; the app then refreshes after a short wait
@@ -53,7 +52,10 @@ function saveMemory() {
   writeJsonAtomic(MEMORY_FILE, memory);
 }
 
+// A number, or null. Note: Number(null) and Number('') are 0, so a missing
+// value would otherwise become 0 °C.
 function num(v) {
+  if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
@@ -76,7 +78,7 @@ function notifyChanges(st, now) {
   const homeNames = (who.home || []).map((p) => p.name);
   const approaching = (who.onTheWay || []).filter((p) => p.towards && p.km <= s.coming_home_km).map((p) => p.name);
   const cur = {
-    advice: JSON.stringify([a.target, a.source]),
+    advice: a.target ?? null, // the temperature only: a new reason alone is no news
     anyone: !!who.anyoneHome,
     home: homeNames,
     approaching,
@@ -86,7 +88,9 @@ function notifyChanges(st, now) {
   if (!seen) { seen = { ...cur, offlineSince: cur.thAvailable ? null : now, offlineSent: false }; return; }
   const counted = !who.noPersons && !(st.presence && st.presence.ignored);
 
-  if (cur.advice !== seen.advice && a.target != null) {
+  // A change by hand on the thermostat already gets its own message.
+  const byHand = a.source === 'hold' && st.hold && st.hold.source === 'thermostat';
+  if (cur.advice !== seen.advice && a.target != null && !byHand) {
     const what = options.allow_control ? '' : ' Advice only: "Allow control" is off, so the thermostat was not changed.';
     notifier.send('heating_changed', `Heating ${t1(a.target)}`, `${a.reason || ''}.${what}`.replace(/^\.\s*/, ''), { now });
   }
@@ -94,8 +98,9 @@ function notifyChanges(st, now) {
     const wait = s.away_delay_minutes > 0 ? ` in ${s.away_delay_minutes} minutes` : '';
     notifier.send('everyone_left', 'Nobody home', `The heating goes to the away temperature (${t1(s.away_temp)})${wait}, unless the schedule is lower or preheating.`, { key: 'left', minGapMs: 10 * 60000, now });
   }
-  if (counted && !seen.anyone && cur.anyone) {
-    const name = cur.home[0] || 'Someone';
+  // Only a person who is really home (not a phone that lost its location).
+  if (counted && !seen.home.length && cur.home.length) {
+    const name = cur.home[0];
     notifier.send('first_home', `${name} is home`, 'The heating follows the schedule again.', { key: 'home', minGapMs: 10 * 60000, now });
   }
   if (counted && !cur.anyone) {
@@ -188,6 +193,7 @@ function withMqtt(st) {
 // With "Set HeatMeister room target" on: keep the room target of every
 // chosen HeatMeister equal to the thermostat's setpoint (like the owner's
 // Node-RED flow, which did number.set_value on a new setpoint).
+const TARGET_RETRY_MS = Math.max(50, Number(process.env.SHP_TARGET_RETRY_MS) || 60000);
 let targetBusy = false;
 async function setTargets(states, st, now) {
   if (targetBusy || !st || !st.ready) return st;
@@ -201,7 +207,7 @@ async function setTargets(states, st, now) {
     for (const { entity } of entities) {
       if (!entity) continue;
       const last = memory.hmTarget[entity.entity_id];
-      const v = heatmeister.targetToSend({ setpoint, entity, last, now });
+      const v = heatmeister.targetToSend({ setpoint, entity, last, now, retryMs: TARGET_RETRY_MS });
       if (v === null) continue;
       try {
         await ha.setHeatmeisterTarget(entity.entity_id, v, allowed);
@@ -433,9 +439,10 @@ function onLiveChange() {
 async function watch(states) {
   const ids = watchedIds(states, settings.get());
   const key = ids.join(',');
-  if (key === live.key && (live.id !== null || key === live.failedKey)) return;
+  // Already watching these (or asking for it right now, or it failed).
+  if (key === live.key && (live.id !== null || live.pending || key === live.failedKey)) return;
   if (live.id !== null) ha.unsubscribe(live.id);
-  live = { id: null, key, failedKey: '' };
+  live = { id: null, key, failedKey: '', pending: true };
   let first = true;
   try {
     const id = await ha.subscribeEntities(ids, () => {
@@ -443,9 +450,10 @@ async function watch(states) {
       if (first) { first = false; return; }
       onLiveChange();
     });
-    if (live.key === key) live.id = id; else ha.unsubscribe(id);
+    if (live.key === key) { live.id = id; live.pending = false; } else ha.unsubscribe(id);
     ha.debug('Live updates for', ids.length, 'entities');
   } catch (err) {
+    if (live.key === key) live.pending = false;
     live.failedKey = key;
     ha.warn('Live updates are not available, the app refreshes every', options.refresh_seconds, 'seconds:', err.message);
   }
@@ -456,9 +464,22 @@ async function refresh() {
     status = { ready: false, message: ha.state.lastError || 'Not connected to Home Assistant yet' };
     return status;
   }
-  // One refresh at a time: a page request and the timer can come together.
-  if (busy) { again = true; return status; }
-  busy = true;
+  // One refresh at a time: a page request, a live change and the timer can
+  // come together. Wait for the running one, then refresh again, so the
+  // caller gets a status that includes its own change (for example a hold).
+  if (running) {
+    await running.catch(() => {});
+    return refresh();
+  }
+  running = doRefresh();
+  try {
+    return await running;
+  } finally {
+    running = null;
+  }
+}
+
+async function doRefresh() {
   try {
     const states = await ha.call({ type: 'get_states' });
     watch(states);
@@ -472,9 +493,6 @@ async function refresh() {
   } catch (err) {
     ha.warn('Refresh failed:', err.message);
     status = { ...status, error: err.message };
-  } finally {
-    busy = false;
-    if (again) { again = false; onLiveChange(); }
   }
   return status;
 }
