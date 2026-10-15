@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.3-dev
+
+- Clearer reason: "Schedule from 17:00 (someone is home)" instead of "Someone is home: schedule from 17:00". In a notification at a switch point the old text read as if someone had just come home.
+
 ## 0.5.2-dev
 
 Fixes after a check of the code:
