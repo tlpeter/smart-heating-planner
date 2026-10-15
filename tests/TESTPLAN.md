@@ -15,14 +15,14 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Notifications | 10 of 10 ✓ |
 | Week schedule | 11 of 11 ✓ |
 | Presence | 13 of 13 ✓ |
-| Decision | 10 of 10 ✓ |
+| Decision | 11 of 11 ✓ |
 | When to send | 9 of 9 ✓ |
 | HeatMeisters | 18 of 18 ✓ |
 | Chart | 4 of 4 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.5.2.
+Version: 0.5.3.
 
 ## Settings and situations
 
@@ -179,6 +179,7 @@ Which temperature and why.
 - ✓ no schedule: away temperature
 - ✓ no change advised when the thermostat already matches, or is unavailable
 - ✓ heat demand comes from hvac_action
+- ✓ the reason for the schedule names the switch point first (not "Someone is home", which reads like an arrival)
 
 ## When to send
 
