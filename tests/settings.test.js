@@ -35,6 +35,17 @@ test('fresh install: connected, nothing chosen, setup hint data', async () => {
   assert.equal(s.advice.source, 'schedule');
 });
 
+test('the unsaved-changes guard (shared with the other apps) is served and used by the page', async () => {
+  const guard = await req('GET', '/unsaved.js');
+  assert.equal(guard.status, 200);
+  assert.ok(String(guard.data).includes('window.unsavedGuard'));
+  const page = await req('GET', '/');
+  assert.ok(String(page.data).includes('<script src="unsaved.js"></script>'));
+  assert.ok(String(page.data).includes('data-guard="Week schedule"') && String(page.data).includes('data-guard="Notifications"'));
+  const js = await req('GET', '/app.js');
+  assert.ok(String(js.data).includes('unsavedGuard.writeDone') && String(js.data).includes('unsavedGuard.init'));
+});
+
 test('entities: HomeKit thermostat first, three persons with trackers, three HeatMeisters', async () => {
   const { data } = await req('GET', '/api/entities');
   assert.equal(data.thermostats[0].entity_id, 'climate.tado_smart_thermostat_ru3010610432');

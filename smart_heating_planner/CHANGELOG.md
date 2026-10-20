@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.5-dev
+
+- Unsaved changes are no longer lost without warning. While Settings, the week schedule or the notifications have changes that are not saved, an orange bar shows **Save** and **Discard**. Leaving the page first asks: save, discard or stay. Adding or removing a switch point and "Copy Monday" count as a change too.
+- A change only counts as saved when the app said it was saved. When saving fails, the bar stays and shows why.
+- The same guard (`unsaved.js`) is used in Smart Charging Planner and Smart Ventilation.
+- Tests: the guard is served and used by the page.
+
 ## 0.5.4-dev
 
 - Tapping a notification on your phone now opens the Smart Heating page instead of the Home Assistant home screen (like Smart Charging Planner). Only for the Home Assistant phone app (`notify.mobile_app_…`), and the app must be shown in the sidebar.

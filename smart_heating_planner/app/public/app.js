@@ -85,6 +85,8 @@ async function api(path, opts = {}) {
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  // Tell the unsaved-changes guard whether a save worked (unsaved.js).
+  if (opts.method && opts.method !== 'GET' && window.unsavedGuard) unsavedGuard.writeDone(res.ok, data.error || `HTTP ${res.status}`);
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
@@ -104,6 +106,20 @@ function showPage(name) {
   if (name === 'home') drawChart();
 }
 document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => showPage(b.dataset.page)));
+
+// Unsaved changes: an orange bar with Save and Discard, and a question before
+// leaving a page with changes that are not saved yet (unsaved.js, the same
+// file as in Smart Charging Planner and Smart Ventilation). The settings form,
+// the week schedule and the notifications count; the hold on Home does not.
+unsavedGuard.init({
+  nav: '.tab, [data-goto]',
+  scope: (form) => form.id === 'settings-form',
+  onDiscard: (g) => {
+    if (g.id === 'settings-form') loadSettingsPage();
+    if (g.dataset.guard === 'Week schedule') { draft = null; renderSchedule(); }
+    if (g.dataset.guard === 'Notifications') loadNotify();
+  },
+});
 document.addEventListener('click', (e) => {
   const a = e.target.closest('[data-goto]');
   if (a) { e.preventDefault(); showPage(a.dataset.goto); }
@@ -278,15 +294,18 @@ $('schedule').addEventListener('click', (e) => {
   if (e.target.matches('[data-add]')) {
     const last = draft[d][draft[d].length - 1];
     draft[d].push({ time: '12:00', temp: last ? last.temp : 19, preheat: false });
+    unsavedGuard.markDirty($('schedule'));
     renderSchedule();
   }
   if (e.target.matches('[data-remove]')) {
     draft[d].splice(Number(e.target.closest('.point').dataset.i), 1);
+    unsavedGuard.markDirty($('schedule'));
     renderSchedule();
   }
 });
 $('copy-mon').addEventListener('click', () => {
   for (const d of ['tue', 'wed', 'thu', 'fri']) draft[d] = JSON.parse(JSON.stringify(draft.mon));
+  unsavedGuard.markDirty($('schedule'));
   renderSchedule();
 });
 $('save-schedule').addEventListener('click', async () => {
@@ -536,6 +555,7 @@ async function loadNotify() {
 }
 $('notify-add').addEventListener('click', () => {
   const el = recipientCard({ name: '', service: '', off: [] });
+  unsavedGuard.markDirty($('notify-list'));
   el.querySelector('[name=name]').focus();
 });
 $('notify-save').addEventListener('click', async () => {

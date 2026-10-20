@@ -100,13 +100,13 @@
 
     <!-- SCHEDULE -->
     <section id="page-schedule" class="page hidden">
-      <div class="card">
+      <div class="card" data-guard="Week schedule">
         <h2><span class="shape sm c-blue" data-icon="schedule"></span>Week schedule</h2>
         <p class="muted small">Each switch point is valid until the next one. <b>Preheat</b>: also heat when nobody is home (for example just before you come home from work).</p>
         <div id="schedule"></div>
         <div class="actions">
           <button id="copy-mon" class="btn">Copy Monday to Tue–Fri</button>
-          <button id="save-schedule" class="btn primary">Save schedule</button>
+          <button id="save-schedule" class="btn primary" data-guard-save>Save schedule</button>
         </div>
         <p id="schedule-msg" class="small"></p>
       </div>
@@ -128,7 +128,7 @@
 
     <!-- SETTINGS -->
     <section id="page-settings" class="page hidden">
-      <form id="settings-form">
+      <form id="settings-form" data-guard="Settings">
         <div class="card">
           <h2><span class="shape sm c-orange" data-icon="thermostat"></span>Thermostat</h2>
           <label>Thermostat entity
@@ -221,20 +221,21 @@
         </div>
       </form>
 
-      <div class="card" id="notify-card">
+      <div class="card" id="notify-card" data-guard="Notifications">
         <h2><span class="shape sm c-orange" data-icon="bell"></span>Notifications</h2>
         <p class="muted small">Messages to phones with the Home Assistant Companion App (notify.mobile_app_…). Add one recipient per phone; each chooses its own messages and whether they show in Android Auto.</p>
         <p id="notify-state" class="muted small"></p>
         <div id="notify-list"></div>
         <div class="actions">
           <button class="btn" type="button" id="notify-add">Add recipient</button>
-          <button class="btn primary" type="button" id="notify-save">Save notifications</button>
+          <button class="btn primary" type="button" id="notify-save" data-guard-save>Save notifications</button>
           <span id="notify-msg" class="small"></span>
         </div>
         <p class="muted small">Last notification: <span id="notify-last">–</span></p>
       </div>
     </section>
   </main>
+  <script src="unsaved.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

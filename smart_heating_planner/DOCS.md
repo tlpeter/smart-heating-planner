@@ -9,6 +9,8 @@ By default the app only **watches**: it shows what it would do and logs it on th
 
 ## Pages
 
+Changes in Settings, the week schedule and the notifications count only after you save them. While there are unsaved changes, an orange bar at the bottom shows **Save** and **Discard**, and going to another page first asks whether to save, discard or stay.
+
 The page updates itself every 5 seconds. Home Assistant tells the app right away when the thermostat, a person (or their trackers) or a chosen HeatMeister changes, so a change shows within a few seconds.
 
 ### Home
