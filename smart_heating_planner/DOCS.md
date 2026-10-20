@@ -79,7 +79,7 @@ One line for every event, the last 500 are kept:
 Messages to phones with the Home Assistant Companion App, like Smart Charging Planner. Nothing is sent until you add a recipient.
 
 1. Click **Add recipient**, give it a name and choose its **Notify action** (for example `notify.mobile_app_peters_phone`; phones are listed first).
-2. **Show in Android Auto**: the message also shows on the car's screen (`car_ui: true`). **High importance**: the phone shows it right away (`importance: high`). Both are on by default; an iPhone ignores them. Every message has the radiator icon (`notification_icon: mdi:radiator`).
+2. **Show in Android Auto**: the message also shows on the car's screen (`car_ui: true`). **High importance**: the phone shows it right away (`importance: high`). Both are on by default; an iPhone ignores them. Every message has the radiator icon (`notification_icon: mdi:radiator`). Tapping a message on a phone (`notify.mobile_app_…`) opens the Smart Heating page; the app must be shown in the sidebar.
 3. Choose the messages, per group (tick the group to turn all its messages on or off):
 
 | Group | Message | When |

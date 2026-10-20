@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.4-dev
+
+- Tapping a notification on your phone now opens the Smart Heating page instead of the Home Assistant home screen (like Smart Charging Planner). Only for the Home Assistant phone app (`notify.mobile_app_…`), and the app must be shown in the sidebar.
+
 ## 0.5.3-dev
 
 - Clearer reason: "Schedule from 17:00 (someone is home)" instead of "Someone is home: schedule from 17:00". In a notification at a switch point the old text read as if someone had just come home.

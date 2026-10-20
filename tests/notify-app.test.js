@@ -20,7 +20,7 @@ const flat = (temp) => Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 's
 const sent = (service) => fakeHa.world.notifications.filter((n) => !service || n.service === service);
 
 test.before(async () => {
-  app = await startApp({ port: PORT, options: { allow_control: true }, env: { SHP_GAP_MS: '50', SHP_SETTLE_MS: '100', SHP_LIVE_MS: '50' } });
+  app = await startApp({ port: PORT, options: { allow_control: true }, env: { HOSTNAME: 'a0b1c2d3-smart-heating-planner', SHP_GAP_MS: '50', SHP_SETTLE_MS: '100', SHP_LIVE_MS: '50' } });
   await save({
     thermostat: 'climate.tado_smart_thermostat_ru3010610432',
     persons: ['peter', 'yvonne', 'cheyenne'].map((n) => ({ entity_id: `person.${n}`, counts: true, coming_home: true })),
@@ -61,15 +61,16 @@ test('recipients are checked and saved: more phones, own messages, Android Auto 
   ]);
 });
 
-test('a test goes to one phone, with the radiator icon, Android Auto and high importance', async () => {
+test('a test goes to one phone, with the radiator icon, Android Auto, high importance and a tap that opens the app page', async () => {
+  const page = '/a0b1c2d3_smart_heating_planner';
   const r = await req('POST', '/api/notify/test', { recipient_id: 'r1' });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   const n = sent().at(-1);
   assert.equal(n.service, 'mobile_app_peter_pixel');
   assert.equal(n.title, 'Smart Heating test');
-  assert.deepEqual(n.data, { notification_icon: 'mdi:radiator', car_ui: true, importance: 'high' });
+  assert.deepEqual(n.data, { notification_icon: 'mdi:radiator', car_ui: true, importance: 'high', url: page, clickAction: page });
   await req('POST', '/api/notify/test', { recipient_id: 'r2' });
-  assert.deepEqual(sent().at(-1).data, { notification_icon: 'mdi:radiator' }, 'Android Auto and high importance off for this phone');
+  assert.deepEqual(sent().at(-1).data, { notification_icon: 'mdi:radiator', url: page, clickAction: page }, 'Android Auto and high importance off for this phone');
   assert.equal((await req('POST', '/api/notify/test', { recipient_id: 'r9' })).status, 400);
 });
 
