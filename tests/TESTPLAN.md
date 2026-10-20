@@ -22,7 +22,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.5.3.
+Version: 0.5.4.
 
 ## Settings and situations
 
@@ -117,7 +117,7 @@ More recipients (phones), each with its own notify action and messages, Android 
 - ✓ nothing is sent without recipients
 - ✓ the notify actions of Home Assistant are offered, phones first; the messages come in groups
 - ✓ recipients are checked and saved: more phones, own messages, Android Auto and importance per phone
-- ✓ a test goes to one phone, with the radiator icon, Android Auto and high importance
+- ✓ a test goes to one phone, with the radiator icon, Android Auto, high importance and a tap that opens the app page
 - ✓ everyone leaves: "Nobody home" and the heating change; a phone without that message does not get it
 - ✓ someone comes home: "<name> is home"
 - ✓ a change on the thermostat by hand is reported
