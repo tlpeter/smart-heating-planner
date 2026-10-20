@@ -8,7 +8,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 
 | Test | Passed |
 |---|---|
-| Settings and situations | 28 of 28 ✓ |
+| Settings and situations | 29 of 29 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
 | HeatMeister temperature (MQTT on) | 10 of 10 ✓ |
 | HeatMeister room target (option on) | 8 of 8 ✓ |
@@ -22,7 +22,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.5.4.
+Version: 0.5.5.
 
 ## Settings and situations
 
@@ -31,6 +31,7 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 `node tests/settings.test.js`
 
 - ✓ fresh install: connected, nothing chosen, setup hint data
+- ✓ the unsaved-changes guard (shared with the other apps) is served and used by the page
 - ✓ entities: HomeKit thermostat first, three persons with trackers, three HeatMeisters
 - ✓ settings are saved
 - ✓ wrong settings are refused with a clear message
