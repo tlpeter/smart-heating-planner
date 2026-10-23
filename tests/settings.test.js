@@ -352,8 +352,8 @@ test('chart: the thermostat room temperature and setpoint of the last 24 hours, 
   assert.deepEqual(call.entity_ids, ['climate.tado_smart_thermostat_ru3010610432']);
 });
 
-test('chart: 3 or 7 days back can be chosen; anything else gives 24 hours', async () => {
-  for (const hours of [72, 168]) {
+test('chart: 3 hours, 3 or 7 days back can be chosen; anything else gives 24 hours', async () => {
+  for (const hours of [3, 72, 168]) {
     const r = await req('GET', `/api/history?hours=${hours}`);
     assert.equal(r.status, 200, JSON.stringify(r.data));
     assert.equal(r.data.hours, hours);

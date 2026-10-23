@@ -637,9 +637,9 @@ function drawChart() {
   }
   const hour = 3600000;
   const days = (d.to - d.from) / 86400000;
-  // One day: a label every 3 (phone: 6) hours. More days: one per day at
+  // 3 hours: a label every hour. One day: every 3 (phone: 6) hours. More days: one per day at
   // midnight (with 3 days on a wide screen also at noon), and a faint line.
-  const every = days > 1.5 ? (days < 4 && W >= 500 ? 12 : 24) : (W < 500 ? 6 : 3);
+  const every = days > 1.5 ? (days < 4 && W >= 500 ? 12 : 24) : days < 0.5 ? 1 : (W < 500 ? 6 : 3);
   for (let t = Math.ceil(d.from / hour) * hour; t <= d.to; t += hour) {
     const h = Number(hhmm(t).slice(0, 2));
     if (h % every) continue;
@@ -695,20 +695,21 @@ function drawChart() {
   hit.addEventListener('pointerleave', leave);
   box.appendChild(svg);
   box.appendChild(tip);
-  // The same data as a table: one row per hour (more days: every 3 hours),
+  // The same data as a table: one row per hour (3 hours: every 15 minutes;
+  // more days: every 3 hours),
   // for the lines that are shown.
   const head = `<tr><th>Time</th>${series.map((sr) => `<th>${esc(sr.name)}</th>`).join('')}</tr>`;
   const rows = [];
-  const rowStep = days > 1.5 ? 3 * hour : hour;
+  const rowStep = days > 1.5 ? 3 * hour : days < 0.5 ? hour / 4 : hour;
   for (let t = Math.ceil(d.from / rowStep) * rowStep; t <= d.to; t += rowStep) {
     rows.push(`<tr><td>${days > 1.5 ? esc(dateTime(t)) : hhmm(t)}</td>${series.map((sr) => { const v = valueAt(sr.points, t); return `<td class="num">${v === null ? '–' : v.toFixed(1)}</td>`; }).join('')}</tr>`);
   }
   $('chart-table').innerHTML = head + rows.reverse().join('');
 }
 // How far back the chart looks: 24 h, 3 or 7 days (kept in this browser).
-const RANGE_TITLE = { 24: 'Last 24 hours', 72: 'Last 3 days', 168: 'Last 7 days' };
+const RANGE_TITLE = { 3: 'Last 3 hours', 24: 'Last 24 hours', 72: 'Last 3 days', 168: 'Last 7 days' };
 let chartHours = 24;
-try { chartHours = [24, 72, 168].includes(Number(localStorage.getItem('shp-chart-hours'))) ? Number(localStorage.getItem('shp-chart-hours')) : 24; } catch { /* private window */ }
+try { chartHours = [3, 24, 72, 168].includes(Number(localStorage.getItem('shp-chart-hours'))) ? Number(localStorage.getItem('shp-chart-hours')) : 24; } catch { /* private window */ }
 function showRange() {
   $('chart-title').textContent = RANGE_TITLE[chartHours];
   document.querySelectorAll('#chart-range button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.hours) === chartHours)));

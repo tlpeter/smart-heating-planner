@@ -9,7 +9,7 @@ const ha = require('./ha');
 const settings = require('./settings');
 
 const HOURS = 24; // the default
-const RANGES = [24, 72, 168]; // 1, 3 and 7 days (Home Assistant keeps 10 days by default)
+const RANGES = [3, 24, 72, 168]; // 3 hours, 1, 3 and 7 days (Home Assistant keeps 10 days by default)
 const MAX_POINTS = 300; // per line, so the page stays light
 const CACHE_MS = 60 * 1000;
 const cache = new Map(); // hours -> { key, at, data }

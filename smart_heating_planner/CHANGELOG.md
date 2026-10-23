@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.7-dev
+
+- The chart on Home can now also show the **last 3 hours** (button **3 h**), like Smart Ventilation. The time line then has a label every hour, and **Show as table** gives a row every 15 minutes. 24 hours stays the default.
+- Tests: 3 hours asks Home Assistant for 3 hours.
+
 ## 0.5.6-dev
 
 - The chart on Home can now look further back: choose **24 h**, **3 days** or **7 days** next to its title. This browser remembers the choice.
