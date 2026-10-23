@@ -8,7 +8,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 
 | Test | Passed |
 |---|---|
-| Settings and situations | 29 of 29 ✓ |
+| Settings and situations | 30 of 30 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
 | HeatMeister temperature (MQTT on) | 10 of 10 ✓ |
 | HeatMeister room target (option on) | 8 of 8 ✓ |
@@ -18,11 +18,11 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Decision | 11 of 11 ✓ |
 | When to send | 9 of 9 ✓ |
 | HeatMeisters | 18 of 18 ✓ |
-| Chart | 4 of 4 ✓ |
+| Chart | 5 of 5 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.5.5.
+Version: 0.5.6.
 
 ## Settings and situations
 
@@ -55,6 +55,7 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 - ✓ live: a change of a HeatMeister fan shows without waiting for the timer
 - ✓ live: saving other HeatMeisters asks for live updates of the new list
 - ✓ chart: the thermostat room temperature and setpoint of the last 24 hours, from Home Assistant's history
+- ✓ chart: 3 or 7 days back can be chosen; anything else gives 24 hours
 - ✓ chart: up to 6 extra temperature sensors, chosen in Settings
 - ✓ chart: no history in Home Assistant gives a clear error, the rest keeps working
 - ✓ the temperature for the HeatMeisters (by default the room temperature) is shown, but not sent while its option is off
@@ -232,6 +233,7 @@ The chart on Home: the thermostat room temperature and setpoint, and chosen sens
 - ✓ room temperature and setpoint come from the thermostat's attributes
 - ✓ sensors: their state, with their name; no thermostat: only the sensors
 - ✓ only the changes are kept, and at most 300 points per line
+- ✓ more days back: more points per line, but never more than 600
 - ✓ the value of now is added at the end when the history does not have it yet
 
 ## Finding entities
