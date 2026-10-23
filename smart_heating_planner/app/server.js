@@ -130,7 +130,7 @@ async function api(req, res, url) {
   if (req.method === 'GET' && p === '/api/history') {
     if (!ha.state.connected) return sendJson(res, 503, { error: 'Not connected to Home Assistant' });
     try {
-      return sendJson(res, 200, await history.get());
+      return sendJson(res, 200, await history.get(Date.now(), Number(url.searchParams.get('hours')) || undefined));
     } catch (err) {
       ha.warn('Reading the history failed:', err.message);
       return sendJson(res, 502, { error: `Could not read the history: ${err.message}` });

@@ -352,6 +352,23 @@ test('chart: the thermostat room temperature and setpoint of the last 24 hours, 
   assert.deepEqual(call.entity_ids, ['climate.tado_smart_thermostat_ru3010610432']);
 });
 
+test('chart: 3 or 7 days back can be chosen; anything else gives 24 hours', async () => {
+  for (const hours of [72, 168]) {
+    const r = await req('GET', `/api/history?hours=${hours}`);
+    assert.equal(r.status, 200, JSON.stringify(r.data));
+    assert.equal(r.data.hours, hours);
+    assert.ok(Math.abs(r.data.to - r.data.from - hours * 3600 * 1000) < 5000, `${hours} hours back`);
+    const call = fakeHa.calls.filter((c) => c.type === 'history/history_during_period').at(-1);
+    assert.ok(Date.parse(call.end_time) - Date.parse(call.start_time) >= hours * 3600 * 1000 - 5000, 'asked Home Assistant for the whole period');
+    assert.ok(r.data.series.every((s) => s.points.length <= 601), 'not too many points');
+  }
+  for (const bad of ['5', 'abc', '10000', '']) {
+    const r = await req('GET', `/api/history?hours=${bad}`);
+    assert.equal(r.status, 200);
+    assert.equal(r.data.hours, 24, `hours=${bad}`);
+  }
+});
+
 test('chart: up to 6 extra temperature sensors, chosen in Settings', async () => {
   assert.equal((await save({ chart_sensors: ['climate.verwarming'] })).status, 400, 'only sensors');
   assert.equal((await save({ chart_sensors: ['sensor.a', 'sensor.b', 'sensor.c', 'sensor.d', 'sensor.e', 'sensor.f', 'sensor.g'] })).status, 400, 'at most 6');

@@ -41,6 +41,15 @@ test('only the changes are kept, and at most 300 points per line', () => {
   assert.deepEqual(thin.at(-1), many.at(-1), 'the last value stays');
 });
 
+test('more days back: more points per line, but never more than 600', () => {
+  const week = to + 6 * 24 * H;
+  const many = Array.from({ length: 15000 }, (_, i) => [from + i * 40000, 18 + (i % 7) / 10]);
+  const all = history.build({}, { 'sensor.x': many.map(([t, v]) => ({ lu: t / 1000, s: String(v) })) },
+    { chart_sensors: ['sensor.x'] }, {}, from, week);
+  const n = all.series[0].points.length;
+  assert.ok(n > history.MAX_POINTS + 1 && n <= 601, `${n} points for 7 days`);
+});
+
 test('the value of now is added at the end when the history does not have it yet', () => {
   const climate = { 'climate.t': [{ s: 'heat', a: { current_temperature: 19.4, temperature: 19 }, lu: from / 1000 }] };
   const current = { 'climate.t': { state: 'heat', attributes: { current_temperature: 20.2, temperature: 20 } }, 'sensor.a': { state: '18.1' } };

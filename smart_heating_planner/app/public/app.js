@@ -636,11 +636,16 @@ function drawChart() {
     svg.appendChild(tx);
   }
   const hour = 3600000;
-  const every = W < 500 ? 6 : 3;
+  const days = (d.to - d.from) / 86400000;
+  // One day: a label every 3 (phone: 6) hours. More days: one per day at
+  // midnight (with 3 days on a wide screen also at noon), and a faint line.
+  const every = days > 1.5 ? (days < 4 && W >= 500 ? 12 : 24) : (W < 500 ? 6 : 3);
   for (let t = Math.ceil(d.from / hour) * hour; t <= d.to; t += hour) {
-    if (Number(hhmm(t).slice(0, 2)) % every) continue;
+    const h = Number(hhmm(t).slice(0, 2));
+    if (h % every) continue;
+    if (days > 1.5 && h === 0) svg.appendChild(svgEl('line', { x1: x(t), x2: x(t), y1: m.t, y2: H - m.b, class: 'grid' }));
     const tx = svgEl('text', { x: x(t), y: H - 6, class: 'axis', 'text-anchor': 'middle' });
-    tx.textContent = hhmm(t);
+    tx.textContent = days > 1.5 && h === 0 ? dayLabel(t) : hhmm(t);
     svg.appendChild(tx);
   }
   // The lines: each value holds until the next one (step line).
@@ -679,7 +684,7 @@ function drawChart() {
       }
       return `<div><i style="background:${seriesColor(d.series.indexOf(sr))}"></i>${esc(sr.name)} <b>${v === null ? '–' : `${v.toFixed(1)} °C`}</b></div>`;
     });
-    tip.innerHTML = `<div class="muted">${hhmm(t)}</div>${rows.join('')}`;
+    tip.innerHTML = `<div class="muted">${days > 1.5 ? esc(dateTime(t)) : hhmm(t)}</div>${rows.join('')}`;
     tip.classList.remove('hidden');
     const left = px / W * r.width;
     tip.style.left = `${Math.min(r.width - tip.offsetWidth - 4, Math.max(4, left + 12 > r.width / 2 ? left - tip.offsetWidth - 12 : left + 12))}px`;
@@ -690,17 +695,38 @@ function drawChart() {
   hit.addEventListener('pointerleave', leave);
   box.appendChild(svg);
   box.appendChild(tip);
-  // The same data as a table: one row per hour (the lines that are shown).
+  // The same data as a table: one row per hour (more days: every 3 hours),
+  // for the lines that are shown.
   const head = `<tr><th>Time</th>${series.map((sr) => `<th>${esc(sr.name)}</th>`).join('')}</tr>`;
   const rows = [];
-  for (let t = Math.ceil(d.from / hour) * hour; t <= d.to; t += hour) {
-    rows.push(`<tr><td>${hhmm(t)}</td>${series.map((sr) => { const v = valueAt(sr.points, t); return `<td class="num">${v === null ? '–' : v.toFixed(1)}</td>`; }).join('')}</tr>`);
+  const rowStep = days > 1.5 ? 3 * hour : hour;
+  for (let t = Math.ceil(d.from / rowStep) * rowStep; t <= d.to; t += rowStep) {
+    rows.push(`<tr><td>${days > 1.5 ? esc(dateTime(t)) : hhmm(t)}</td>${series.map((sr) => { const v = valueAt(sr.points, t); return `<td class="num">${v === null ? '–' : v.toFixed(1)}</td>`; }).join('')}</tr>`);
   }
   $('chart-table').innerHTML = head + rows.reverse().join('');
 }
+// How far back the chart looks: 24 h, 3 or 7 days (kept in this browser).
+const RANGE_TITLE = { 24: 'Last 24 hours', 72: 'Last 3 days', 168: 'Last 7 days' };
+let chartHours = 24;
+try { chartHours = [24, 72, 168].includes(Number(localStorage.getItem('shp-chart-hours'))) ? Number(localStorage.getItem('shp-chart-hours')) : 24; } catch { /* private window */ }
+function showRange() {
+  $('chart-title').textContent = RANGE_TITLE[chartHours];
+  document.querySelectorAll('#chart-range button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.hours) === chartHours)));
+}
+$('chart-range').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-hours]');
+  if (!b || Number(b.dataset.hours) === chartHours) return;
+  chartHours = Number(b.dataset.hours);
+  try { localStorage.setItem('shp-chart-hours', String(chartHours)); } catch { /* private window */ }
+  showRange();
+  loadChart();
+});
+showRange();
+const dayLabel = (ms) => new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'short', day: 'numeric' }).format(new Date(ms));
+
 async function loadChart() {
   try {
-    chartData = await api('api/history');
+    chartData = await api(`api/history?hours=${chartHours}`);
     $('chart-note').textContent = chartData.series.length ? '' : 'Choose a thermostat in Settings to see the chart.';
   } catch (err) {
     chartData = null;

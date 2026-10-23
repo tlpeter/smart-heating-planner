@@ -49,9 +49,16 @@
       </div>
 
       <div class="card">
-        <h2><span class="shape sm c-blue" data-icon="chart"></span>Last 24 hours</h2>
+        <div class="chart-head">
+          <h2><span class="shape sm c-blue" data-icon="chart"></span><span id="chart-title">Last 24 hours</span></h2>
+          <div id="chart-range" class="range" role="group" aria-label="How far back">
+            <button type="button" data-hours="24" aria-pressed="true">24 h</button>
+            <button type="button" data-hours="72" aria-pressed="false">3 days</button>
+            <button type="button" data-hours="168" aria-pressed="false">7 days</button>
+          </div>
+        </div>
         <ul id="chart-legend" class="legend"></ul>
-        <div id="chart" class="chart" role="img" aria-label="Room temperature and setpoint over the last 24 hours"></div>
+        <div id="chart" class="chart" role="img" aria-label="Room temperature and setpoint over the chosen period"></div>
         <p id="chart-note" class="muted small"></p>
         <details class="small"><summary class="muted">Show as table</summary><div class="table-wrap"><table id="chart-table" class="ctable"></table></div></details>
       </div>

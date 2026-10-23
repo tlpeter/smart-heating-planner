@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.6-dev
+
+- The chart on Home can now look further back: choose **24 h**, **3 days** or **7 days** next to its title. This browser remembers the choice.
+- With 3 or 7 days, the time line shows the days (for example "Mon 19"), the values under the mouse show the day and time, and **Show as table** gives a row every 3 hours.
+- Home Assistant keeps its history for 10 days by default, so 7 days fits. Kept less? Then the chart starts where the history starts.
+- Tests: 3 and 7 days ask Home Assistant for the whole period, anything else gives 24 hours, and a week has at most 600 points per line.
+
 ## 0.5.5-dev
 
 - Unsaved changes are no longer lost without warning. While Settings, the week schedule or the notifications have changes that are not saved, an orange bar shows **Save** and **Discard**. Leaving the page first asks: save, discard or stay. Adding or removing a switch point and "Copy Monday" count as a change too.
