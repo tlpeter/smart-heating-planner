@@ -63,3 +63,7 @@ tado limits its cloud API: without an Auto-Assist subscription only **100 reques
 ## For developers
 
 See [AGENTS.md](AGENTS.md) for the rules, branches, versions and tests, and [tests/TESTPLAN.md](tests/TESTPLAN.md) for the result of the last test run.
+
+## License
+
+Released under the [MIT License](LICENSE): free to use, change and share, also commercially, as long as the license text stays with it. No warranty.
