@@ -216,3 +216,21 @@ table.hms input[type=text] { width: 100%; min-width: 220px; }
 
 /* A running fan spins (Mushroom card-mod style); app.js sets the speed per 10 % step. */
 .shape[data-fan] svg { transform-origin: 50% 50%; }
+
+/* Notifications: one box per recipient */
+.recipient { background: var(--chip); border-radius: 14px; padding: 12px 14px; margin: 10px 0; }
+.recipient .checks { margin: 8px 0; }
+.ncats { margin-top: 6px; }
+.ncat { padding: 6px 0; border-top: 1px solid rgba(var(--rgb-text), 0.06); }
+.ncat summary { cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.ncat summary label { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
+.ncat .checks.col { margin: 6px 0 4px 26px; }
+.bad { color: rgb(var(--rgb-red)); }
+
+/* Chart: title with the period buttons */
+.chart-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chart-head h2 { margin-bottom: 0; }
+.range { display: inline-flex; gap: 4px; background: var(--chip); border-radius: 18px; padding: 3px; }
+.range button { border: none; background: transparent; color: var(--muted); font: inherit; font-size: 12.5px; padding: 5px 11px; border-radius: 15px; cursor: pointer; }
+.range button[aria-pressed="true"] { background: var(--card); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+.range button:focus-visible { outline: 2px solid var(--accent); }

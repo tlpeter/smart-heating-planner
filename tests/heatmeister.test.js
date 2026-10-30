@@ -166,7 +166,8 @@ test('room target: the setpoint, within the HeatMeister limits and steps, only w
   // Just sent and Home Assistant does not show it yet: wait a minute.
   assert.equal(hm.targetToSend({ setpoint: 20, entity: e, last: { value: 20, at: now - 5000 }, now }), null);
   assert.equal(hm.targetToSend({ setpoint: 20, entity: e, last: { value: 20, at: now - 61000 }, now }), 20);
-  assert.equal(hm.targetToSend({ setpoint: 20, entity: e, last: { value: 20, at: now - 5000, error: 'x' }, now }), 20, 'after a failure: again');
+  assert.equal(hm.targetToSend({ setpoint: 20, entity: e, last: { value: 20, at: now - 5000, error: 'x' }, now }), null, 'after a failure: not every few seconds');
+  assert.equal(hm.targetToSend({ setpoint: 20, entity: e, last: { value: 20, at: now - 61000, error: 'x' }, now }), 20, 'after a failure: again after a minute');
 });
 
 test('room target entity: the working one ("_2" for Woonkamer-voor), with its limits', () => {

@@ -50,7 +50,7 @@ function decideTarget(input) {
       ? `Schedule from ${point.current.time} (presence is not used)`
       : presence.waitingUntil
         ? `Nobody home, waiting until ${fmtTime(presence.waitingUntil, timeZone)} before lowering`
-        : `Someone is home: schedule from ${point.current.time}`;
+        : `Schedule from ${point.current.time} (someone is home)`;
   } else if (point.current.preheat) {
     target = point.current.temp;
     source = 'preheat';

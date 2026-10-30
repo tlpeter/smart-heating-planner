@@ -35,6 +35,17 @@ test('fresh install: connected, nothing chosen, setup hint data', async () => {
   assert.equal(s.advice.source, 'schedule');
 });
 
+test('the unsaved-changes guard (shared with the other apps) is served and used by the page', async () => {
+  const guard = await req('GET', '/unsaved.js');
+  assert.equal(guard.status, 200);
+  assert.ok(String(guard.data).includes('window.unsavedGuard'));
+  const page = await req('GET', '/');
+  assert.ok(String(page.data).includes('<script src="unsaved.js"></script>'));
+  assert.ok(String(page.data).includes('data-guard="Week schedule"') && String(page.data).includes('data-guard="Notifications"'));
+  const js = await req('GET', '/app.js');
+  assert.ok(String(js.data).includes('unsavedGuard.writeDone') && String(js.data).includes('unsavedGuard.init'));
+});
+
 test('entities: HomeKit thermostat first, three persons with trackers, three HeatMeisters', async () => {
   const { data } = await req('GET', '/api/entities');
   assert.equal(data.thermostats[0].entity_id, 'climate.tado_smart_thermostat_ru3010610432');
@@ -339,6 +350,23 @@ test('chart: the thermostat room temperature and setpoint of the last 24 hours, 
   assert.ok(sp.points.some((p) => p[1] === 16) && sp.points.some((p) => p[1] === 19));
   const call = fakeHa.calls.filter((c) => c.type === 'history/history_during_period').at(-1);
   assert.deepEqual(call.entity_ids, ['climate.tado_smart_thermostat_ru3010610432']);
+});
+
+test('chart: 3 hours, 3 or 7 days back can be chosen; anything else gives 24 hours', async () => {
+  for (const hours of [3, 72, 168]) {
+    const r = await req('GET', `/api/history?hours=${hours}`);
+    assert.equal(r.status, 200, JSON.stringify(r.data));
+    assert.equal(r.data.hours, hours);
+    assert.ok(Math.abs(r.data.to - r.data.from - hours * 3600 * 1000) < 5000, `${hours} hours back`);
+    const call = fakeHa.calls.filter((c) => c.type === 'history/history_during_period').at(-1);
+    assert.ok(Date.parse(call.end_time) - Date.parse(call.start_time) >= hours * 3600 * 1000 - 5000, 'asked Home Assistant for the whole period');
+    assert.ok(r.data.series.every((s) => s.points.length <= 601), 'not too many points');
+  }
+  for (const bad of ['5', 'abc', '10000', '']) {
+    const r = await req('GET', `/api/history?hours=${bad}`);
+    assert.equal(r.status, 200);
+    assert.equal(r.data.hours, 24, `hours=${bad}`);
+  }
 });
 
 test('chart: up to 6 extra temperature sensors, chosen in Settings', async () => {

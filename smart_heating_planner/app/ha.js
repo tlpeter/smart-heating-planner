@@ -14,6 +14,8 @@
 // - the room temperature target of the chosen HeatMeisters (number.set_value
 //   on their ..._ambientcontrol_temp, setHeatmeisterTarget(), "Set HeatMeister
 //   room target"). Home Assistant sends it to the HeatMeister over MQTT.
+// - notifications, only to the notify actions chosen in Settings ›
+//   Notifications (sendNotification()).
 // Anything else is refused.
 
 const WebSocket = require('ws');
@@ -66,11 +68,14 @@ const READ_ONLY_COMMANDS = new Set([
   'unsubscribe_events',
   // The chart on Home: Home Assistant's own history (only reads).
   'history/history_during_period',
+  // The notify actions that exist, for Settings › Notifications (only reads).
+  'get_services',
 ]);
 
 const CONTROL_TOKEN = Symbol('thermostat control');
 const MQTT_TOKEN = Symbol('heatmeister room temperature');
 const TARGET_TOKEN = Symbol('heatmeister room target');
+const NOTIFY_TOKEN = Symbol('notification');
 
 // Send a command to Home Assistant and wait for its result.
 // onEvent: for a subscription, called with every event Home Assistant sends for it.
@@ -85,7 +90,10 @@ function call(message, timeoutMs = 20000, token = null, onEvent = null) {
         message.domain === 'mqtt' && message.service === 'publish') ||
       // The HeatMeisters' room target, through setHeatmeisterTarget().
       (message.type === 'call_service' && token === TARGET_TOKEN && options.allow_heatmeister_target === true &&
-        message.domain === 'number' && message.service === 'set_value');
+        message.domain === 'number' && message.service === 'set_value') ||
+      // A notification, only to a notify action chosen as a recipient.
+      (message.type === 'call_service' && token === NOTIFY_TOKEN && message.domain === 'notify' &&
+        notifyTargets.has(`notify.${message.service}`));
     if (!allowed) {
       warn('Refused command', message.type, message.domain ? `${message.domain}.${message.service}` : '', '- not allowed');
       reject(new Error(`Command ${message.type} is not allowed`));
@@ -193,6 +201,45 @@ async function setHeatmeisterTarget(entityId, temperature, allowedIds) {
   }, 20000, TARGET_TOKEN);
 }
 
+// "mobile_app_pixel" or "notify.mobile_app_pixel" -> "notify.mobile_app_pixel"
+function normaliseNotify(v) {
+  const x = String(v || '').trim();
+  if (!x) return '';
+  return x.startsWith('notify.') ? x : `notify.${x}`;
+}
+
+// The notify actions the app may use: the recipients chosen in Settings.
+let notifyTargets = new Set();
+function setNotifyTargets(list) {
+  notifyTargets = new Set((list || []).map(normaliseNotify).filter(Boolean));
+}
+
+// Where a tap on a notification opens: the app's own page in the Home
+// Assistant sidebar (/<slug>), like Smart Charging Planner. The Supervisor
+// names the app's container after its slug, with dashes:
+// "a0b1c2d3-smart-heating-planner" is the app "a0b1c2d3_smart_heating_planner".
+// Empty when that name is not found; then a tap opens Home Assistant as before.
+function appPagePath() {
+  const host = String(process.env.HOSTNAME || '').trim().toLowerCase();
+  if (!/^[a-z0-9]+-smart-heating-planner$/.test(host)) return '';
+  return `/${host.replace(/-/g, '_')}`;
+}
+
+// Send a notification to one recipient. data: the extra settings for the
+// Companion App (icon, Android Auto, importance). Phones (notify.mobile_app_…)
+// also get where a tap opens: "url" for iPhone, "clickAction" for Android.
+async function sendNotification(target, title, message, data = {}) {
+  const full = normaliseNotify(target);
+  if (!full) throw new Error('No notify action chosen');
+  if (!notifyTargets.has(full)) throw new Error(`${full} is not a recipient`);
+  const service = full.slice('notify.'.length);
+  if (!/^[a-z0-9_]+$/.test(service)) throw new Error(`"${full}" is not a valid notify action`);
+  debug('Notification:', title, '-', message);
+  const page = appPagePath();
+  if (page && service.startsWith('mobile_app_')) data = { ...data, url: page, clickAction: page };
+  return call({ type: 'call_service', domain: 'notify', service, service_data: { title: String(title).slice(0, 100), message: String(message).slice(0, 500), data } }, 20000, NOTIFY_TOKEN);
+}
+
 function onConnect(fn) {
   connectListeners.push(fn);
 }
@@ -261,4 +308,4 @@ function connect() {
   });
 }
 
-module.exports = { state, call, subscribeEntities, unsubscribe, setTemperature, publishRoomTemperature, setHeatmeisterTarget, onConnect, connect, recentLog, log, debug, warn, READ_ONLY_COMMANDS };
+module.exports = { state, call, subscribeEntities, unsubscribe, setTemperature, publishRoomTemperature, setHeatmeisterTarget, sendNotification, appPagePath, normaliseNotify, setNotifyTargets, onConnect, connect, recentLog, log, debug, warn, READ_ONLY_COMMANDS };

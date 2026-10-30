@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.6.0
+
+- Stable version with everything from 0.5.1 up to 0.5.7: notifications to more phones (also in Android Auto), tapping a notification opens the app, a warning for unsaved changes, the chart can show 3 hours, 24 hours, 3 or 7 days, and fixes (a change by hand on the tado is kept, the night the clocks change). Every option that controls something is still **off** by default.
+
+## 0.5.7
+
+- The chart on Home can now also show the **last 3 hours** (button **3 h**), like Smart Ventilation. The time line then has a label every hour, and **Show as table** gives a row every 15 minutes. 24 hours stays the default.
+- Tests: 3 hours asks Home Assistant for 3 hours.
+
+## 0.5.6
+
+- The chart on Home can now look further back: choose **24 h**, **3 days** or **7 days** next to its title. This browser remembers the choice.
+- With 3 or 7 days, the time line shows the days (for example "Mon 19"), the values under the mouse show the day and time, and **Show as table** gives a row every 3 hours.
+- Home Assistant keeps its history for 10 days by default, so 7 days fits. Kept less? Then the chart starts where the history starts.
+- Tests: 3 and 7 days ask Home Assistant for the whole period, anything else gives 24 hours, and a week has at most 600 points per line.
+
+## 0.5.5
+
+- Unsaved changes are no longer lost without warning. While Settings, the week schedule or the notifications have changes that are not saved, an orange bar shows **Save** and **Discard**. Leaving the page first asks: save, discard or stay. Adding or removing a switch point and "Copy Monday" count as a change too.
+- A change only counts as saved when the app said it was saved. When saving fails, the bar stays and shows why.
+- The same guard (`unsaved.js`) is used in Smart Charging Planner and Smart Ventilation.
+- Tests: the guard is served and used by the page.
+
+## 0.5.4
+
+- Tapping a notification on your phone now opens the Smart Heating page instead of the Home Assistant home screen (like Smart Charging Planner). Only for the Home Assistant phone app (`notify.mobile_app_…`), and the app must be shown in the sidebar.
+
+## 0.5.3
+
+- Clearer reason: "Schedule from 17:00 (someone is home)" instead of "Someone is home: schedule from 17:00". In a notification at a switch point the old text read as if someone had just come home.
+
+## 0.5.2
+
+Fixes after a check of the code:
+- A change by hand on the tado shortly after the app set it (within 3 minutes) could be overwritten. Now the app waits until the tado shows its value, and then keeps your change.
+- A thermostat without a setpoint (for example when it is off) was read as 0 °C; then 14 °C went to the HeatMeisters. Now nothing is sent.
+- A HeatMeister that does not answer was asked every few seconds (and filled the Activity page). Now at most once a minute.
+- Notifications: "<name> is home" no longer comes when a phone only loses its location, and "Heating …" only when the temperature changes (not for a new reason with the same temperature, and not next to "Changed on the thermostat").
+- Live updates could be asked twice at the same time; a manual hold could show the old state for a moment.
+- Daylight saving: the next switch point (and a hold "until the next switch point") is no longer an hour off on the night the clocks change.
+
+## 0.5.1
+
+- **Notifications** (Settings › Notifications), like Smart Charging Planner: more recipients (phones), each with its own notify action and its own messages, in three groups (Problems, Heating, Who is home). Per phone: **Show in Android Auto** and **High importance**, both on. Every message has the radiator icon. **Send test** per phone.
+
 ## 0.5.0
 
 - First stable version. Everything below, from 0.1.0 up to 0.4.11, is in it. Every option that controls something (thermostat, HeatMeister temperature, HeatMeister room target) is **off** by default: turn on what you want in the Configuration tab.

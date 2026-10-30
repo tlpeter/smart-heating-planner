@@ -24,7 +24,7 @@
 const path = require('path');
 const WebSocket = require(path.join(__dirname, '..', 'smart_heating_planner', 'app', 'node_modules', 'ws'));
 
-const HA_VERSION = process.env.SHP_HA_VERSION || '2026.10.0';
+const HA_VERSION = process.env.SHP_HA_VERSION || '2026.10.1';
 const TZ = 'Europe/Amsterdam';
 const HOME = { lat: 51.37, lon: 5.19 };
 
@@ -38,6 +38,8 @@ function freshWorld() {
     failMqtt: false,
     failHmTarget: false,
     failHistory: false,
+    failNotify: false,
+    notifications: [], // { service, title, message, data } sent by the app
     mqtt: {}, // topic -> [payloads] sent by the app
     // Where each person's GPS tracker is: 'home', 'not_home', a zone name or 'unknown'.
     persons: { peter: 'home', yvonne: 'not_home', cheyenne: 'not_home' },
@@ -204,6 +206,24 @@ function start(port = 0) {
         if (msg.type === 'get_config') return ok({ time_zone: TZ, version: HA_VERSION, unit_system: { temperature: '°C' } });
         if (msg.type === 'config/entity_registry/list') return ok(registries().entities);
         if (msg.type === 'config/device_registry/list') return ok(registries().devices);
+        // The notify actions: a phone per person (Companion App), plus two that are not phones.
+        if (msg.type === 'get_services') {
+          return ok({
+            notify: {
+              mobile_app_peter_pixel: { name: 'Send a notification via mobile_app_peter_pixel' },
+              mobile_app_yvonne_iphone: { name: 'Send a notification via mobile_app_yvonne_iphone' },
+              mobile_app_cheyenne: { name: 'Send a notification via mobile_app_cheyenne' },
+              persistent_notification: { name: 'Send a persistent notification' },
+              send_message: { name: 'Send a notification message' },
+            },
+            climate: { set_temperature: {} },
+          });
+        }
+        if (msg.type === 'call_service' && msg.domain === 'notify') {
+          if (world.failNotify) return ws.send(JSON.stringify({ id: msg.id, type: 'result', success: false, error: { code: 'home_assistant_error', message: 'Phone not registered' } }));
+          world.notifications.push({ service: msg.service, ...msg.service_data });
+          return ok({ context: { id: 'x' } });
+        }
         // Live updates: like Home Assistant, first the current state of the
         // entities, then a "c" (changed) event for every change (notify()).
         if (msg.type === 'subscribe_entities') {

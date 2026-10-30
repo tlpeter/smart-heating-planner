@@ -76,3 +76,10 @@ test('heat demand comes from hvac_action', () => {
   assert.equal(heatDemand({ available: true, hvac_action: 'idle' }), false);
   assert.equal(heatDemand({ available: false, hvac_action: 'heating' }), false);
 });
+
+test('the reason for the schedule names the switch point first (not "Someone is home", which reads like an arrival)', () => {
+  const { decideTarget } = require('../smart_heating_planner/app/decide');
+  const point = { current: { time: '17:00', temp: 20, preheat: false }, next: { time: '22:00', at: Date.now() + 3600000 } };
+  const r = decideTarget({ now: Date.now(), timeZone: 'Europe/Amsterdam', point, presence: { effectiveHome: true }, hold: null, settings: { away_temp: 16 }, thermostat: { available: true, target: 19 } });
+  assert.equal(r.reason, 'Schedule from 17:00 (someone is home)');
+});

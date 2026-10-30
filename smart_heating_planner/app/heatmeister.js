@@ -110,8 +110,9 @@ function targetEntity(states, prefix) {
 // Which room target to send to one HeatMeister, or null for nothing.
 // The thermostat's setpoint, kept within the HeatMeister's limits and steps.
 // Not when it already has it, and the same value not again within a minute
-// (Home Assistant may need a moment to show it).
-function targetToSend({ setpoint, entity, last, now }) {
+// (Home Assistant may need a moment to show it), also after a failure (so a
+// HeatMeister that does not answer is not asked every few seconds).
+function targetToSend({ setpoint, entity, last, now, retryMs = 60000 }) {
   if (setpoint === null || setpoint === undefined || !Number.isFinite(Number(setpoint)) || !entity) return null;
   let v = Number(setpoint);
   const step = entity.step > 0 ? entity.step : 0.5;
@@ -120,7 +121,7 @@ function targetToSend({ setpoint, entity, last, now }) {
   if (entity.max !== null && entity.max !== undefined) v = Math.min(entity.max, v);
   v = Math.round(v * 100) / 100;
   if (entity.value !== null && Math.abs(entity.value - v) < 0.01) return null;
-  if (last && last.value === v && !last.error && now - last.at < 60000) return null;
+  if (last && last.value === v && now - last.at < retryMs) return null;
   return v;
 }
 

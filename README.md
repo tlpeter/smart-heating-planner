@@ -36,10 +36,11 @@ The test version may contain unfinished or less-tested changes. Its version numb
 | You want it warmer for a while | **Manual hold** on the Home page: a temperature for 1, 2 or 4 hours, or until the next switch point. Ends by itself. |
 | Someone turns the tado up or down | With control on, the app keeps that temperature until the next switch point, instead of overwriting it. |
 | HeatMeisters | Found automatically. The Home page shows per HeatMeister whether it runs (the fan icon turns faster per 10 % fan speed), the radiator and room temperature and the fan speed; changes show within a few seconds. Optionally the app sends them the room temperature (MQTT, `<Name>/temp-ambient-ext`) and keeps their room target equal to the thermostat's setpoint. |
+| Notifications | To more phones, each with its own messages; also in Android Auto. |
 
 The schedule only counts when someone is home; this is an option (Settings › Presence). Per person you choose whether they count for "home" and whether "coming home" applies, and for everyone which kinds of tracker count (GPS/zones, router, Bluetooth). A person with an unknown location counts as home: better warm than cold.
 
-The app looks like Home Assistant with Mushroom cards and follows light and dark mode. It has four pages: **Home** (advice now, a chart of the last 24 hours (lines on/off in the legend), who is home, schedule, manual hold, HeatMeisters), **Schedule** (the week), **Activity** (every change in the advice, with the reason) and **Settings**.
+The app looks like Home Assistant with Mushroom cards and follows light and dark mode. It has four pages: **Home** (advice now, a chart of the last 3 hours, 24 hours, 3 or 7 days (lines on/off in the legend), who is home, schedule, manual hold, HeatMeisters), **Schedule** (the week), **Activity** (every change in the advice, with the reason) and **Settings**. Changes you have not saved yet show in an orange bar, and leaving the page first asks whether to save them.
 
 The full explanation of every option is in [DOCS.md](smart_heating_planner/DOCS.md) (also the **Documentation** tab of the app in Home Assistant).
 

@@ -78,3 +78,15 @@ test('validation needs at least one switch point and at most 12 per day', () => 
   const many = Array.from({ length: 13 }, (_, i) => ({ time: `${String(i + 6).padStart(2, '0')}:00`, temp: 19 }));
   assert.equal(schedule.validate({ mon: many }).ok, false);
 });
+
+test('daylight saving: the next switch point is at its clock time, not an hour off', () => {
+  const s = { mon: [{ time: '07:00', temp: 20 }], tue: [], wed: [], thu: [], fri: [], sat: [{ time: '22:00', temp: 15 }], sun: [{ time: '07:00', temp: 19 }] };
+  // Saturday 24 Oct 2026 23:00 (summer time); the clocks go back that night.
+  const autumn = schedule.current(s, new Date('2026-10-24T23:00:00+02:00'), TZ);
+  assert.equal(new Date(autumn.next.at).toISOString(), '2026-10-25T06:00:00.000Z', 'Sunday 07:00 winter time');
+  assert.equal(autumn.next.inMinutes, 9 * 60, 'nine real hours');
+  // Saturday 27 Mar 2027 23:00 (winter time); the clocks go forward that night.
+  const spring = schedule.current(s, new Date('2027-03-27T23:00:00+01:00'), TZ);
+  assert.equal(new Date(spring.next.at).toISOString(), '2027-03-28T05:00:00.000Z', 'Sunday 07:00 summer time');
+  assert.equal(spring.next.inMinutes, 7 * 60);
+});

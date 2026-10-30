@@ -9,13 +9,15 @@ By default the app only **watches**: it shows what it would do and logs it on th
 
 ## Pages
 
+Changes in Settings, the week schedule and the notifications count only after you save them. While there are unsaved changes, an orange bar at the bottom shows **Save** and **Discard**, and going to another page first asks whether to save, discard or stay.
+
 The page updates itself every 5 seconds. Home Assistant tells the app right away when the thermostat, a person (or their trackers) or a chosen HeatMeister changes, so a change shows within a few seconds.
 
 ### Home
 
 - **Advice now**: the temperature the thermostat should have, and why (Schedule, Away, Preheat, On the way, Manual hold).
 - **Thermostat**: the room temperature, what it is set to, and whether it is heating. "Would change 19.0 °C → 20.5 °C" means the thermostat does not match the advice (with control on: "Will change"). With control on, the line below shows the last command and how many changes were made in the last 24 hours.
-- **Last 24 hours**: a chart with the thermostat's room temperature and setpoint, and up to 6 temperature sensors chosen in Settings (see *Chart on Home*). Click a name above the chart to show or hide that line (this browser remembers it; of new sensors the first 3 are shown). Move the mouse over it (or touch it) to see the values at that moment; **Show as table** gives the values per hour. The data comes from Home Assistant's own history, so it is there right after a restart. It updates every 5 minutes.
+- **Chart** (**3 h**, **24 h**, **3 days** or **7 days**, chosen next to the title; this browser remembers it): a chart with the thermostat's room temperature and setpoint, and up to 6 temperature sensors chosen in Settings (see *Chart on Home*). Click a name above the chart to show or hide that line (this browser remembers it; of new sensors the first 3 are shown). Move the mouse over it (or touch it) to see the values at that moment; **Show as table** gives the values per hour (3 hours: every 15 minutes; 3 or 7 days: every 3 hours). The data comes from Home Assistant's own history, so it is there right after a restart. Home Assistant keeps that history for 10 days by default (`recorder:` → `purge_keep_days`); with fewer days the chart starts where the history starts. It updates every 5 minutes.
 - **Who is home**: per person home, away (with the zone, and the distance when coming home is on), or location unknown. Persons who do not count are not shown.
 - **Schedule**: the switch point that is valid now, and the next one.
 - **Manual hold**: keep a temperature for 1, 2 or 4 hours, or until the next switch point. It wins over everything else and ends by itself. **End hold** stops it early. A change on the thermostat itself shows here too ("Changed on the thermostat: keeping 22 °C until 17:00").
@@ -74,6 +76,32 @@ One line for every event, the last 500 are kept:
 
 "Thermostat asks for heat" comes from the thermostat's `hvac_action` attribute (`heating`). The HomeKit tado thermostat reports it.
 
+### Notifications (Settings)
+
+Messages to phones with the Home Assistant Companion App, like Smart Charging Planner. Nothing is sent until you add a recipient.
+
+1. Click **Add recipient**, give it a name and choose its **Notify action** (for example `notify.mobile_app_peters_phone`; phones are listed first).
+2. **Show in Android Auto**: the message also shows on the car's screen (`car_ui: true`). **High importance**: the phone shows it right away (`importance: high`). Both are on by default; an iPhone ignores them. Every message has the radiator icon (`notification_icon: mdi:radiator`). Tapping a message on a phone (`notify.mobile_app_…`) opens the Smart Heating page; the app must be shown in the sidebar.
+3. Choose the messages, per group (tick the group to turn all its messages on or off):
+
+| Group | Message | When |
+| --- | --- | --- |
+| Problems | Setting the thermostat failed | At most once an hour. |
+| | Thermostat not reachable / reachable again | After 10 minutes unavailable, and when it is back. |
+| | Daily limit of changes reached | At most every 6 hours. |
+| | HeatMeister room target not set | At most once an hour per HeatMeister. |
+| | Temperature to the HeatMeisters not sent | MQTT failed; at most once an hour. |
+| Heating | Heating goes to another temperature | The advice changes (with "Allow control" off it says it is advice only). |
+| | Changed on the thermostat by hand | With the temperature and until when it is kept. |
+| | Manual hold ended | |
+| Who is home | Everyone left | The last person who counts left. |
+| | Someone is home again | The first person came home. |
+| | Someone is on the way home | Per person, at most every 30 minutes. |
+
+4. Click **Save notifications**, then **Send test** to check a phone.
+
+You can add up to 10 recipients. A phone that does not answer never stops the heating; the card shows "not sent" with the reason.
+
 ## How the advice is made
 
 The first rule that applies wins:
@@ -100,7 +128,7 @@ A HeatMeister that controls the room temperature (the master) compares the room 
 
 1. When the setpoint changes (by the app, by another automation or by hand in the tado app), the new value goes to the HeatMeisters within a few seconds.
 2. The value stays within the HeatMeister's own limits and steps (for example 14–26 °C in steps of 0.5 °C): a setpoint of 5 °C gives 14 °C.
-3. It is only sent when the HeatMeister has another value. A change by hand on the HeatMeister is set back to the setpoint.
+3. It is only sent when the HeatMeister has another value; the same value at most once a minute, also when it failed. A change by hand on the HeatMeister is set back to the setpoint.
 4. It goes through `number.set_value` on the HeatMeister's entity; Home Assistant sends it to the HeatMeister over MQTT. For a HeatMeister with "_2" ids the one that works is used.
 5. Home shows the target and, per HeatMeister, when it was set. Activity gets a line for every change (or error).
 
@@ -114,7 +142,7 @@ With **Allow control** on, every refresh:
 Limits:
 
 - Only when the target really differs (0.5 °C steps).
-- At least 2 minutes between two changes.
+- At least 2 minutes between two changes, and the same temperature not again within 3 minutes (the time the thermostat gets to show it), so a change by hand in those minutes is kept.
 - Never more than **Most changes per 24 hours**. A failed try counts too, so a broken thermostat is not hammered.
 - Not when the thermostat is off or unavailable. The app never changes the thermostat's mode (heat/off/auto).
 
@@ -135,6 +163,7 @@ Limits:
 
 ## Safety
 
+- Notifications go only to the notify actions chosen in Settings › Notifications.
 - The app changes only three things, each behind its own option that is off by default: `climate.set_temperature` on the thermostat chosen in Settings (**Allow control**), `mqtt.publish` of a temperature to the HeatMeister topics chosen in Settings (**Send temperature to HeatMeisters**), and `number.set_value` on the room target of the HeatMeisters chosen in Settings (**Set HeatMeister room target**). Everything else the app sends only reads (including asking for live updates of the chosen entities and reading the history for the chart). The tests check this on every push.
 - It never changes automations, scripts, helpers or Node-RED flows, and never the thermostat's mode.
 - Only Home Assistant ingress can reach the app.

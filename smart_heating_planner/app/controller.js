@@ -18,6 +18,7 @@ const holdStore = require('./hold');
 const activity = require('./activity');
 const control = require('./control');
 const heatmeister = require('./heatmeister');
+const notifier = require('./notify');
 const { decideTarget, heatDemand } = require('./decide');
 const { readJson, writeJsonAtomic } = require('./jsonstore');
 
@@ -33,8 +34,7 @@ let status = { ready: false, message: 'Starting…' };
 let lastControl = null; // { at, sent, why, error }
 let lastMqtt = null; // { at, sent, error }
 let timer = null;
-let busy = false;
-let again = false; // a change came in during a refresh: refresh once more
+let running = null; // the refresh that runs now (a promise)
 
 // Live updates: Home Assistant tells the app when the thermostat, a chosen
 // HeatMeister or a person changes; the app then refreshes after a short wait
@@ -52,9 +52,82 @@ function saveMemory() {
   writeJsonAtomic(MEMORY_FILE, memory);
 }
 
+// A number, or null. Note: Number(null) and Number('') are 0, so a missing
+// value would otherwise become 0 °C.
 function num(v) {
+  if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+// 17:00 in Home Assistant's time zone.
+function clock(ms) {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: ha.state.timeZone || 'UTC', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(ms));
+}
+const t1 = (v) => (v == null ? '–' : `${Number(v).toFixed(1).replace(/\.0$/, '')} °C`);
+
+// Notifications about what changed since the last refresh. The first refresh
+// after a start only remembers how things are (no messages).
+const OFFLINE_MS = 10 * 60000;
+let seen = null; // { advice, anyone, home, approaching, hold, thAvailable, offlineSince, offlineSent }
+function notifyChanges(st, now) {
+  if (!st || !st.ready) return;
+  const s = settings.get();
+  const a = st.advice || {};
+  const who = st.presence || {};
+  const homeNames = (who.home || []).map((p) => p.name);
+  const approaching = (who.onTheWay || []).filter((p) => p.towards && p.km <= s.coming_home_km).map((p) => p.name);
+  const cur = {
+    advice: a.target ?? null, // the temperature only: a new reason alone is no news
+    anyone: !!who.anyoneHome,
+    home: homeNames,
+    approaching,
+    hold: !!st.hold,
+    thAvailable: !!(st.thermostat && st.thermostat.available),
+  };
+  if (!seen) { seen = { ...cur, offlineSince: cur.thAvailable ? null : now, offlineSent: false }; return; }
+  const counted = !who.noPersons && !(st.presence && st.presence.ignored);
+
+  // A change by hand on the thermostat already gets its own message.
+  const byHand = a.source === 'hold' && st.hold && st.hold.source === 'thermostat';
+  if (cur.advice !== seen.advice && a.target != null && !byHand) {
+    const what = options.allow_control ? '' : ' Advice only: "Allow control" is off, so the thermostat was not changed.';
+    notifier.send('heating_changed', `Heating ${t1(a.target)}`, `${a.reason || ''}.${what}`.replace(/^\.\s*/, ''), { now });
+  }
+  if (counted && seen.anyone && !cur.anyone) {
+    const wait = s.away_delay_minutes > 0 ? ` in ${s.away_delay_minutes} minutes` : '';
+    notifier.send('everyone_left', 'Nobody home', `The heating goes to the away temperature (${t1(s.away_temp)})${wait}, unless the schedule is lower or preheating.`, { key: 'left', minGapMs: 10 * 60000, now });
+  }
+  // Only a person who is really home (not a phone that lost its location).
+  if (counted && !seen.home.length && cur.home.length) {
+    const name = cur.home[0];
+    notifier.send('first_home', `${name} is home`, 'The heating follows the schedule again.', { key: 'home', minGapMs: 10 * 60000, now });
+  }
+  if (counted && !cur.anyone) {
+    for (const name of cur.approaching) {
+      if (seen.approaching.includes(name)) continue;
+      const p = (who.onTheWay || []).find((x) => x.name === name);
+      notifier.send('coming_home', `${name} is on the way home`, `${p ? `${p.km} km away. ` : ''}The heating follows the schedule.`, { key: `way:${name}`, minGapMs: 30 * 60000, now });
+    }
+  }
+  if (seen.hold && !cur.hold) {
+    notifier.send('hold_ended', 'Manual hold ended', `The heating follows the plan again: ${t1(a.target)}.`, { now });
+  }
+  // Thermostat not reachable for 10 minutes, and back again.
+  let offlineSince = seen.offlineSince;
+  let offlineSent = seen.offlineSent;
+  if (cur.thAvailable) {
+    if (offlineSent) notifier.send('thermostat_back', 'Thermostat reachable again', 'The app can read the thermostat again.', { now });
+    offlineSince = null;
+    offlineSent = false;
+  } else if (s.thermostat) {
+    if (!offlineSince) offlineSince = now;
+    if (!offlineSent && now - offlineSince >= OFFLINE_MS) {
+      notifier.send('thermostat_offline', 'Thermostat not reachable', `${s.thermostat} has been unavailable since ${clock(offlineSince)}.`, { now });
+      offlineSent = true;
+    }
+  }
+  seen = { ...cur, offlineSince, offlineSent };
 }
 
 // The temperature for the HeatMeisters: the thermostat's setpoint (default),
@@ -100,6 +173,7 @@ async function publishAllNow(value, thermostat, now) {
     } catch (err) {
       ha.warn('Sending the room temperature failed:', topic, err.message);
       lastMqtt = { at: now, sent: false, error: err.message };
+      notifier.send('mqtt_failed', 'Temperature to the HeatMeisters not sent', `${topic}: ${err.message}`, { key: 'mqtt', minGapMs: 3600000, now });
       break; // MQTT is down: try again next refresh
     }
   }
@@ -119,6 +193,7 @@ function withMqtt(st) {
 // With "Set HeatMeister room target" on: keep the room target of every
 // chosen HeatMeister equal to the thermostat's setpoint (like the owner's
 // Node-RED flow, which did number.set_value on a new setpoint).
+const TARGET_RETRY_MS = Math.max(50, Number(process.env.SHP_TARGET_RETRY_MS) || 60000);
 let targetBusy = false;
 async function setTargets(states, st, now) {
   if (targetBusy || !st || !st.ready) return st;
@@ -132,7 +207,7 @@ async function setTargets(states, st, now) {
     for (const { entity } of entities) {
       if (!entity) continue;
       const last = memory.hmTarget[entity.entity_id];
-      const v = heatmeister.targetToSend({ setpoint, entity, last, now });
+      const v = heatmeister.targetToSend({ setpoint, entity, last, now, retryMs: TARGET_RETRY_MS });
       if (v === null) continue;
       try {
         await ha.setHeatmeisterTarget(entity.entity_id, v, allowed);
@@ -142,6 +217,7 @@ async function setTargets(states, st, now) {
         ha.warn('Setting the HeatMeister room target failed:', entity.entity_id, err.message);
         memory.hmTarget[entity.entity_id] = { value: v, at: now, error: err.message };
         activity.add({ event: 'error', target: v, source: 'heatmeister', reason: `${entity.entity_id}: ${err.message}`, thermostat: setpoint, sent: false }, now);
+        notifier.send('hm_target_failed', 'HeatMeister room target not set', `${entity.entity_id}: ${err.message}`, { key: `hmt:${entity.entity_id}`, minGapMs: 3600000, now });
       }
     }
     for (const id of Object.keys(memory.hmTarget)) if (!allowed.includes(id)) delete memory.hmTarget[id];
@@ -304,6 +380,7 @@ async function act(states, current, now) {
     if (r.ok) {
       ha.log('Thermostat changed by hand to', manual, '°C - kept until', new Date(until).toISOString());
       activity.add({ event: 'manual', target: manual, source: 'hold', reason: `Changed on the thermostat to ${manual} °C`, thermostat: manual, sent: false }, now);
+      notifier.send('manual_change', 'Changed on the thermostat', `Kept at ${t1(manual)} until ${clock(until)}. Then the app follows the plan again.`, { now });
     }
     st = evaluate(states, now);
   }
@@ -311,6 +388,9 @@ async function act(states, current, now) {
   const decision = control.shouldSend({ now, advice: st.advice, thermostat: st.thermostat, memory, maxWritesPerDay: options.max_writes_per_day });
   if (!decision.send) {
     lastControl = { at: now, sent: false, why: decision.why };
+    if (/limit/.test(decision.why || '')) {
+      notifier.send('limit_reached', 'Daily limit reached', `The app made ${options.max_writes_per_day} changes in 24 hours and waits now. The thermostat stays at ${t1(st.thermostat.target)} instead of ${t1(st.advice.target)}.`, { key: 'limit', minGapMs: 6 * 3600000, now });
+    }
   } else {
     try {
       await ha.setTemperature(s.thermostat, st.advice.target, s.thermostat);
@@ -323,6 +403,7 @@ async function act(states, current, now) {
       control.recordWrite(memory, st.thermostat.target, now);
       lastControl = { at: now, sent: false, error: err.message };
       activity.add({ event: 'error', target: st.advice.target, source: st.advice.source, reason: `Sending failed: ${err.message}`, thermostat: st.thermostat.target, sent: false }, now);
+      notifier.send('thermostat_failed', 'Setting the thermostat failed', `Could not set ${t1(st.advice.target)}: ${err.message}`, { key: 'thfail', minGapMs: 3600000, now });
     }
     writeJsonAtomic(MEMORY_FILE, memory);
   }
@@ -358,9 +439,10 @@ function onLiveChange() {
 async function watch(states) {
   const ids = watchedIds(states, settings.get());
   const key = ids.join(',');
-  if (key === live.key && (live.id !== null || key === live.failedKey)) return;
+  // Already watching these (or asking for it right now, or it failed).
+  if (key === live.key && (live.id !== null || live.pending || key === live.failedKey)) return;
   if (live.id !== null) ha.unsubscribe(live.id);
-  live = { id: null, key, failedKey: '' };
+  live = { id: null, key, failedKey: '', pending: true };
   let first = true;
   try {
     const id = await ha.subscribeEntities(ids, () => {
@@ -368,9 +450,10 @@ async function watch(states) {
       if (first) { first = false; return; }
       onLiveChange();
     });
-    if (live.key === key) live.id = id; else ha.unsubscribe(id);
+    if (live.key === key) { live.id = id; live.pending = false; } else ha.unsubscribe(id);
     ha.debug('Live updates for', ids.length, 'entities');
   } catch (err) {
+    if (live.key === key) live.pending = false;
     live.failedKey = key;
     ha.warn('Live updates are not available, the app refreshes every', options.refresh_seconds, 'seconds:', err.message);
   }
@@ -381,9 +464,22 @@ async function refresh() {
     status = { ready: false, message: ha.state.lastError || 'Not connected to Home Assistant yet' };
     return status;
   }
-  // One refresh at a time: a page request and the timer can come together.
-  if (busy) { again = true; return status; }
-  busy = true;
+  // One refresh at a time: a page request, a live change and the timer can
+  // come together. Wait for the running one, then refresh again, so the
+  // caller gets a status that includes its own change (for example a hold).
+  if (running) {
+    await running.catch(() => {});
+    return refresh();
+  }
+  running = doRefresh();
+  try {
+    return await running;
+  } finally {
+    running = null;
+  }
+}
+
+async function doRefresh() {
   try {
     const states = await ha.call({ type: 'get_states' });
     watch(states);
@@ -392,18 +488,17 @@ async function refresh() {
     if (options.allow_control && settings.get().thermostat) st = await act(states, st, now);
     if (options.allow_heatmeister_temperature && settings.get().heatmeisters.length) st = await sendRoomTemperature(st, now);
     if (options.allow_heatmeister_target && settings.get().heatmeisters.length) st = await setTargets(states, st, now);
+    notifyChanges(st, now);
     status = st;
   } catch (err) {
     ha.warn('Refresh failed:', err.message);
     status = { ...status, error: err.message };
-  } finally {
-    busy = false;
-    if (again) { again = false; onLiveChange(); }
   }
   return status;
 }
 
 function start() {
+  notifier.recipients(); // load them, so their notify actions are allowed
   // A new connection: the old live updates are gone.
   live = { id: null, key: '', failedKey: '' };
   if (timer) clearInterval(timer);

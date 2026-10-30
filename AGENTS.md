@@ -20,8 +20,9 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
 - `decide.js`: the decision. Order: manual hold → someone home → preheat → on the way home → away temperature (never above the schedule). The HeatMeisters run by themselves; the app shows them and (with options) sends them the room temperature and keeps their room target equal to the thermostat's setpoint (`heatmeister.targetToSend()`: within their min/max/step, only when it differs).
 - `controller.js`: every refresh reads the states, decides and logs a line in the activity log when the advice changes. It asks Home Assistant for live updates (`subscribe_entities`) of the thermostat, the persons with their trackers and the chosen HeatMeisters, and refreshes 2 seconds after a change; the `refresh_seconds` timer is the backup.
 - `control.js`: when to send (only on a real change, 2 minutes apart, daily limit) and how a change by hand is noticed (the thermostat shows something else than the app set, after 3 minutes).
-- `history.js`: the chart on Home (`/api/history`): 24 hours of the thermostat's room temperature and setpoint plus up to 6 `chart_sensors` (the page shows the first 3; the legend turns lines on/off, kept in the browser), from Home Assistant's history (`history/history_during_period`), cached for a minute, at most 300 points per line. The page draws it as SVG itself (no chart library); colours `--series-1…8` in `styles.css` were checked for colour blindness.
-- `ha.js`: the WebSocket client. It reads (`READ_ONLY_COMMANDS`, including `subscribe_entities` / `unsubscribe_events` for live updates and `history/history_during_period` for the chart); it writes only through three functions, each behind its own option: `setTemperature()` (`climate.set_temperature` on the chosen thermostat, `allow_control`), `publishRoomTemperature()` (`mqtt.publish` to the chosen HeatMeister topics, `allow_heatmeister_temperature`) and `setHeatmeisterTarget()` (`number.set_value` on the `…_ambientcontrol_temp` of the chosen HeatMeisters, `allow_heatmeister_target`).
+- `history.js`: the chart on Home (`/api/history?hours=3|24|72|168`, chosen on the page, kept in the browser): 3 hours, 24 hours, 3 or 7 days of the thermostat's room temperature and setpoint plus up to 6 `chart_sensors` (the page shows the first 3; the legend turns lines on/off, kept in the browser), from Home Assistant's history (`history/history_during_period`), cached for a minute per period, at most 300 points per line per day (600 at most). The page draws it as SVG itself (no chart library); colours `--series-1…8` in `styles.css` were checked for colour blindness.
+- `notify.js`: notifications, like Smart Charging Planner: recipients in `/data/notify.json` (`{ id, name, service, off, car_ui, high }`), messages in groups (`CATEGORIES`, `MESSAGES`; a new message is on). `controller.js` sends them (`notifyChanges()` compares with the last refresh; the first refresh after a start sends nothing). Data: `notification_icon: mdi:radiator`, plus `car_ui: true` (Android Auto) and `importance: high` per recipient.
+- `ha.js`: the WebSocket client. It reads (`READ_ONLY_COMMANDS`, including `get_services` for the notify actions, `subscribe_entities` / `unsubscribe_events` for live updates and `history/history_during_period` for the chart); it writes only through three functions, each behind its own option: `setTemperature()` (`climate.set_temperature` on the chosen thermostat, `allow_control`), `publishRoomTemperature()` (`mqtt.publish` to the chosen HeatMeister topics, `allow_heatmeister_temperature`) and `setHeatmeisterTarget()` (`number.set_value` on the `…_ambientcontrol_temp` of the chosen HeatMeisters, `allow_heatmeister_target`). Notifications go through `sendNotification()`, only to the notify actions chosen as recipients.
 
 ### The owner's house
 
@@ -62,6 +63,7 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
   4. Remove `-dev` from the changelog headings on `main`.
   5. Push `main` (only after the owner said so).
   6. Run `git merge -s ours main` on `dev`, then push `dev`, so `dev` keeps its own names.
+  7. The next change on `dev` continues after the release: after `0.5.0` comes `0.5.1-dev` (dev stays at or above main).
 - A release zip, when the owner asks for one: `smart-heating-planner-vX.Y.Z.zip`, without a top folder.
 
 ## Tests
@@ -77,11 +79,12 @@ Claude reads this file through `CLAUDE.md`; Codex reads it directly.
   - `node tests/testplan.js all`: everything, and writes the test plan (a few seconds).
   - `node --test tests/<name>.test.js`: one file.
 - New behaviour gets a test, preferably in `tests/settings.test.js` against the real app (`tests/fake-ha.js` is a copy of the owner's house).
-- Four SAFETY checks: `settings.test.js` (all options off: only read-only commands), `control-app.test.js` (only `climate.set_temperature` on the chosen thermostat), `heatmeister-app.test.js` (only `mqtt.publish` to the chosen topics) and `heatmeister-target-app.test.js` (only `number.set_value` on the room targets of the chosen HeatMeisters). Keep them.
+- Five SAFETY checks (the fifth: `notify-app.test.js`, notifications only to the chosen notify actions): `settings.test.js` (all options off: only read-only commands), `control-app.test.js` (only `climate.set_temperature` on the chosen thermostat), `heatmeister-app.test.js` (only `mqtt.publish` to the chosen topics) and `heatmeister-target-app.test.js` (only `number.set_value` on the room targets of the chosen HeatMeisters). Keep them.
 - `.github/workflows/ha-core-compat.yml` runs the app against a real Home Assistant Core.
 
 ## Style
 
+- `smart_heating_planner/app/public/unsaved.js` (the unsaved-changes guard) is shared with Smart Charging Planner and Smart Ventilation: keep the three copies the same. The settings form, the week schedule (`data-guard`) and the notifications (`data-guard`) are guarded; a change made with a button calls `unsavedGuard.markDirty()`.
 - Write code comments and UI texts in plain English: short sentences, no jargon.
 - Keep it simple: no new dependencies without a good reason (now only `ws`).
 - Check UI changes with a screenshot, both on desktop and on phone width.
