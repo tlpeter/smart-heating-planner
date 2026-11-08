@@ -8,7 +8,7 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 
 | Test | Passed |
 |---|---|
-| Settings and situations | 30 of 30 ✓ |
+| Settings and situations | 31 of 31 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
 | HeatMeister temperature (MQTT on) | 10 of 10 ✓ |
 | HeatMeister room target (option on) | 8 of 8 ✓ |
@@ -18,11 +18,12 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Decision | 11 of 11 ✓ |
 | When to send | 9 of 9 ✓ |
 | HeatMeisters | 18 of 18 ✓ |
+| Why the HeatMeisters run | 7 of 7 ✓ |
 | Chart | 5 of 5 ✓ |
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.5.7.
+Version: 0.5.8.
 
 ## Settings and situations
 
@@ -58,6 +59,7 @@ The real app ("Allow control" off) against a fake Home Assistant (tado over Home
 - ✓ chart: 3 hours, 3 or 7 days back can be chosen; anything else gives 24 hours
 - ✓ chart: up to 6 extra temperature sensors, chosen in Settings
 - ✓ chart: no history in Home Assistant gives a clear error, the rest keeps working
+- ✓ why the HeatMeisters run: a timeline of their control state from Home Assistant's history, with the reason and the plan
 - ✓ the temperature for the HeatMeisters (by default the room temperature) is shown, but not sent while its option is off
 - ✓ SAFETY: with "Allow control" off the app only sent read-only commands
 
@@ -223,6 +225,20 @@ Finding the HeatMeisters by their entity names (heatbooster_… and heatmeister_
 - ✓ entity ids of one HeatMeister: also the "_2" ones, not the WiFi values
 - ✓ room target: the setpoint, within the HeatMeister limits and steps, only when it differs
 - ✓ room target entity: the working one ("_2" for Woonkamer-voor), with its limits
+
+## Why the HeatMeisters run
+
+The timeline on Home: control states (names and numbers) from Home Assistant's history in blocks, a slave with the state of its master, the measured values and the plan as the reason, and what stands out.
+
+`node tests/heatmeister-timeline.test.js`
+
+- ✓ control states: names (firmware 2.9) and numbers (older firmware)
+- ✓ blocks per state, with the measured values and the plan as the reason
+- ✓ a slave gets the state of its master; one without a control state follows the master it is set to follow
+- ✓ no control state and no master: only running or off from the fan
+- ✓ what stands out: full speed while too cold, heat without a request, defrosts, manual and sensor errors
+- ✓ short flickers (under a minute) are folded into the block before
+- ✓ the HeatMeisters chosen in Settings, else all found
 
 ## Chart
 
