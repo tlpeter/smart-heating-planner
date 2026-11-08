@@ -104,6 +104,24 @@
         <h2><span class="shape sm c-purple" data-icon="fan"></span>HeatMeisters</h2>
         <div id="hm-list"></div>
       </div>
+
+      <div id="tl-card" class="card hidden">
+        <div class="chart-head">
+          <h2><span class="shape sm c-purple" data-icon="chart"></span><span>Why the HeatMeisters run</span></h2>
+          <div id="tl-range" class="range" role="group" aria-label="How far back">
+            <button type="button" data-hours="24" aria-pressed="true">24 h</button>
+            <button type="button" data-hours="72" aria-pressed="false">3 days</button>
+            <button type="button" data-hours="168" aria-pressed="false">7 days</button>
+          </div>
+        </div>
+        <p class="muted small">What each HeatMeister did, next to the plan. Tap a block to see why.</p>
+        <ul id="tl-legend" class="legend"></ul>
+        <div id="tl"></div>
+        <div id="tl-detail" class="tl-detail hidden" aria-live="polite"></div>
+        <div id="tl-insights"></div>
+        <p id="tl-note" class="muted small"></p>
+        <details class="small"><summary class="muted">Show as list</summary><div class="table-wrap"><table id="tl-table" class="ctable"></table></div></details>
+      </div>
     </section>
 
     <!-- SCHEDULE -->

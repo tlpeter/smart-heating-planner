@@ -159,8 +159,20 @@ function history(msg) {
       const night = i % 24 < 8;
       const target = night ? 16 : 19;
       const room = Math.round((night ? 17.2 : 19.6) * 10 + (i % 3)) / 10;
+      // The HeatMeisters: idle at night; by day heat, then overrun; a defrost
+      // at 10:00. Slaves say "slave" (like the real Woonkamer-voor).
+      const hmState = i % 24 < 8 ? 'idle' : i % 24 === 10 ? 'defrost' : i % 3 === 2 ? 'overrun' : 'heat';
+      const hmFan = { idle: 0, heat: 80, overrun: 30, defrost: 10 }[hmState];
       if (id.startsWith('climate.')) {
-        list.push({ s: 'heat', a: { ...now[id].attributes, current_temperature: room, temperature: target }, lu: t / 1000 });
+        list.push({ s: 'heat', a: { ...now[id].attributes, current_temperature: room, temperature: target, hvac_action: night ? 'idle' : 'heating' }, lu: t / 1000 });
+      } else if (/^sensor\.heatbooster_.*_fan_control_state$/.test(id)) {
+        list.push({ s: ['slave', 'unavailable'].includes(now[id].state) ? now[id].state : hmState, lu: t / 1000 });
+      } else if (/^number\.heatbooster_.*_fan_speed(_2)?$/.test(id)) {
+        list.push({ s: now[id].state === 'unavailable' ? 'unavailable' : String(hmFan), lu: t / 1000 });
+      } else if (/^sensor\.heatbooster_.*_temp_inlet(_2)?$/.test(id)) {
+        list.push({ s: now[id].state === 'unavailable' ? 'unavailable' : String(hmState === 'heat' ? 36 : hmState === 'idle' ? 22 : 30), lu: t / 1000 });
+      } else if (/^sensor\.heatbooster_.*_temp_inlet_rate$/.test(id)) {
+        list.push({ s: String(hmState === 'defrost' ? -1.2 : hmState === 'heat' ? 0.4 : -0.1), lu: t / 1000 });
       } else {
         const e = { s: String(Math.round((room - 0.4) * 10) / 10), lu: t / 1000 };
         if (!msg.minimal_response || i === 0) e.a = msg.no_attributes ? {} : now[id].attributes;

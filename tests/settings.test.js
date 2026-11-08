@@ -395,6 +395,38 @@ test('chart: no history in Home Assistant gives a clear error, the rest keeps wo
   assert.equal((await status()).connected, true);
 });
 
+test('why the HeatMeisters run: a timeline of their control state from Home Assistant\'s history, with the reason and the plan', async () => {
+  const r = await req('GET', '/api/heatmeister-timeline');
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const d = r.data;
+  assert.equal(d.hours, 24);
+  const garage = d.devices.find((x) => x.name === 'Woonkamer-garage');
+  assert.ok(garage, 'the master is shown');
+  const states = new Set(garage.segments.map((x) => x.effective));
+  for (const st of ['idle', 'heat', 'overrun', 'defrost']) assert.ok(states.has(st), `state ${st} seen`);
+  const heat = garage.segments.find((x) => x.effective === 'heat');
+  assert.match(heat.meaning, /Warm water reaches the radiator/);
+  assert.ok(heat.why.some((w) => /Radiator in/.test(w)), 'the inlet temperature is given');
+  assert.ok(heat.why.some((w) => /Plan: thermostat set to/.test(w)), 'the plan is given');
+  const defrost = garage.segments.find((x) => x.effective === 'defrost');
+  assert.ok(defrost.why.some((w) => /dropped/.test(w)), 'the fast drop of the inlet temperature is given');
+  // The slave (Woonkamer-voor) gets the reason of its master.
+  const voor = d.devices.find((x) => x.name === 'Woonkamer-voor');
+  if (voor) assert.ok(voor.segments.some((x) => x.state === 'slave' && x.effective === 'heat' && x.source === 'master'), 'slave shows the master\'s state');
+  assert.ok(d.plan.setpoint.some((x) => x.value === 19) && d.plan.asking.some((x) => x.value === true), 'the thermostat setpoint and its heat demand are next to it');
+  assert.ok(d.devices.every((x) => Array.isArray(x.items)), 'what stands out');
+  // Only reading: get_states and the history.
+  const call = fakeHa.calls.filter((c) => c.type === 'history/history_during_period').find((c) => c.entity_ids.some((id) => id.endsWith('_fan_control_state')));
+  assert.ok(call, 'the control states were read from the history');
+  for (const hours of [72, 168]) assert.equal((await req('GET', `/api/heatmeister-timeline?hours=${hours}`)).data.hours, hours);
+  assert.equal((await req('GET', '/api/heatmeister-timeline?hours=3')).data.hours, 24, 'other periods give 24 hours');
+  fakeHa.world.failHistory = true;
+  await save({}); // clears the cache
+  const f = await req('GET', '/api/heatmeister-timeline');
+  assert.equal(f.status, 502);
+  fakeHa.world.failHistory = false;
+});
+
 test('the temperature for the HeatMeisters (by default the room temperature) is shown, but not sent while its option is off', async () => {
   const s = await refreshed();
   assert.equal(s.roomTemperature.allowed, false);

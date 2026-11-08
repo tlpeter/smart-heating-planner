@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.8-dev
+
+- New card on Home: **Why the HeatMeisters run**. Per HeatMeister a bar with a block for every control state (idle, heat, overrun, defrost, startup support, cool, manual, sensor error), with the thermostat's setpoint and "asks for heat" above it. Choose **24 h**, **3 days** or **7 days**.
+- Tap a block to see why: what the state means, the radiator temperature and how fast it changed, the room temperature and target, the fan speed, and the plan at that moment (setpoint, schedule, did the thermostat ask for heat).
+- A slave (for example Woonkamer-voor) shows the state of its master, striped. A HeatMeister without a control state follows the master it is set to follow in Settings.
+- **What stands out** gives hints from the numbers, for example: the fan ran at full speed while the room stayed too cold, heating while the thermostat did not ask for it, a long overrun, defrost cycles, manual control, sensor errors.
+- Only reads Home Assistant's history (no new option, nothing is sent, no access code needed). Control states as names (firmware 2.9) and as numbers (older firmware) are both understood.
+- Tests: new `heatmeister-timeline.test.js`, and the real app gives the timeline from the fake Home Assistant.
+
 ## 0.5.7-dev
 
 - The chart on Home can now also show the **last 3 hours** (button **3 h**), like Smart Ventilation. The time line then has a label every hour, and **Show as table** gives a row every 15 minutes. 24 hours stays the default.

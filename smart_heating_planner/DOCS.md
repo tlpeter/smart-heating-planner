@@ -21,6 +21,7 @@ The page updates itself every 5 seconds. Home Assistant tells the app right away
 - **Who is home**: per person home, away (with the zone, and the distance when coming home is on), or location unknown. Persons who do not count are not shown.
 - **Schedule**: the switch point that is valid now, and the next one.
 - **Manual hold**: keep a temperature for 1, 2 or 4 hours, or until the next switch point. It wins over everything else and ends by itself. **End hold** stops it early. A change on the thermostat itself shows here too ("Changed on the thermostat: keeping 22 °C until 17:00").
+- **Why the HeatMeisters run** (**24 h**, **3 days** or **7 days**): see *Why the HeatMeisters run* below.
 - **HeatMeisters**: per HeatMeister its control state (idle, heat, overrun, slave = follows another HeatMeister, …), running or off (from the fan status and fan speed; a running fan icon spins, one step faster for every 10 % fan speed: from a quarter turn per second at 1–10 % to 2.5 turns per second at 91–100 %), the radiator in/out temperature, the room temperature (and its own room target when it controls the room), and the fan speed. With sending on, also the room temperature last sent to it and when.
 
 ### Schedule
@@ -122,6 +123,39 @@ A HeatMeister listens on MQTT, topic `<Name>/temp-ambient-ext`, for a temperatur
 
 It goes through Home Assistant's MQTT integration (`mqtt.publish`), so the app needs no MQTT login of its own.
 
+## Why the HeatMeisters run
+
+A card on Home that shows, per HeatMeister, what it did and why, next to the plan. It helps to see whether heating can be smarter or a setting should change.
+
+- **Bars**: one per HeatMeister, with a block for every control state. Above them: the thermostat's **setpoint** (darker = warmer) and whether the thermostat **asks for heat**. Below: the time.
+- **Tap a block** (or click it) to see why:
+  - what the state means;
+  - the radiator temperature at the start (and the highest), and how fast it changed (°C per minute);
+  - the room temperature and the HeatMeister's room target;
+  - the fan speed (average and highest);
+  - the plan at that moment: the thermostat setpoint, the schedule temperature, and whether the thermostat asked for heat.
+- **Slaves**: a slave (control state "slave", like Woonkamer-voor) follows its master over MQTT. Its blocks show the master's state, striped. A HeatMeister without a control state in Home Assistant (like Woonkamer-gang) follows the master chosen at "Follows" in Settings; without one it only shows running or off from its fan.
+- **What stands out**: hints from the numbers, not certainties. For example: the fan ran at (almost) full speed while the room stayed below target (the radiator may give too little heat at this water temperature), heating while the thermostat did not ask for heat (the warm water came from somewhere else), a long overrun, defrost cycles, manual control or a sensor error.
+- **Show as list**: every block as a row, newest first.
+
+The control states, from SDR Engineering's protocol specification:
+
+| State | Meaning |
+| --- | --- |
+| idle | No warm (or cold) water in the radiator; the fan is off. |
+| heat | Warm water reaches the radiator; the fan speed follows how much heat there is. |
+| overrun | The warm water stopped; the fan keeps running for a while to use the heat that is left. |
+| defrost | The HeatMeister saw a heat pump defrost cycle (the water cools down fast) and adjusts the fan so the defrost ends sooner. |
+| startup | Startup support. The protocol gives only this name, not what the HeatMeister does exactly. |
+| cool | Cold water (heat pump cooling); the fan cools the room. |
+| manual | Manual control: a fixed fan speed. |
+| slave | Follows another HeatMeister over MQTT. |
+| sensor error | A temperature sensor gives no good value. |
+
+Firmware 2.9 reports the name, older firmware a number (0 idle … 8 sensor error); both work. The exact switch points (how warm the water must be, how long the overrun is) are set on the HeatMeister's own web page; the app does not read them.
+
+The data comes from Home Assistant's history of the HeatMeister entities and the thermostat (only reading; the app asks no HeatMeister directly). It updates every 5 minutes. Home Assistant keeps 10 days by default.
+
 ## Room target for the HeatMeisters
 
 A HeatMeister that controls the room temperature (the master) compares the room temperature with its own **room target** (`number.…_ambientcontrol_temp`). With **Set HeatMeister room target** on (Configuration tab), the app keeps that target equal to the thermostat's setpoint, for every ticked HeatMeister:
@@ -164,6 +198,6 @@ Limits:
 ## Safety
 
 - Notifications go only to the notify actions chosen in Settings › Notifications.
-- The app changes only three things, each behind its own option that is off by default: `climate.set_temperature` on the thermostat chosen in Settings (**Allow control**), `mqtt.publish` of a temperature to the HeatMeister topics chosen in Settings (**Send temperature to HeatMeisters**), and `number.set_value` on the room target of the HeatMeisters chosen in Settings (**Set HeatMeister room target**). Everything else the app sends only reads (including asking for live updates of the chosen entities and reading the history for the chart). The tests check this on every push.
+- The app changes only three things, each behind its own option that is off by default: `climate.set_temperature` on the thermostat chosen in Settings (**Allow control**), `mqtt.publish` of a temperature to the HeatMeister topics chosen in Settings (**Send temperature to HeatMeisters**), and `number.set_value` on the room target of the HeatMeisters chosen in Settings (**Set HeatMeister room target**). Everything else the app sends only reads (including asking for live updates of the chosen entities and reading the history for the chart and for *Why the HeatMeisters run*). The tests check this on every push.
 - It never changes automations, scripts, helpers or Node-RED flows, and never the thermostat's mode.
 - Only Home Assistant ingress can reach the app.

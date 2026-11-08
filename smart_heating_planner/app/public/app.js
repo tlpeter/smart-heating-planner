@@ -738,13 +738,122 @@ async function loadChart() {
 let chartResize = null;
 window.addEventListener('resize', () => { clearTimeout(chartResize); chartResize = setTimeout(drawChart, 150); });
 
+// ------------------------------------------------- why the HeatMeisters run
+// A bar per HeatMeister with a block per control state, the thermostat's
+// setpoint and "asks for heat" above them. Tap a block: why it ran.
+const ST_LABEL = { idle: 'Idle', heat: 'Heat', overrun: 'Overrun', manual: 'Manual', defrost: 'Defrost', startup: 'Startup support', cool: 'Cool', slave: 'Slave', sensor_error: 'Sensor error', running: 'Running', off: 'Off', unknown: 'No data' };
+let tlData = null;
+let tlHours = 24;
+let tlSel = null; // "deviceIndex:segmentIndex"
+try { tlHours = [24, 72, 168].includes(Number(localStorage.getItem('shp-tl-hours'))) ? Number(localStorage.getItem('shp-tl-hours')) : 24; } catch { /* private window */ }
+const tlClass = (st) => `st-${ST_LABEL[st] ? st : 'unknown'}`;
+const dur = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min`; };
+const when = (ms) => (tlHours > 24 ? dateTime(ms) : clock(ms));
+
+function tlRange() {
+  document.querySelectorAll('#tl-range button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.hours) === tlHours)));
+}
+$('tl-range').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-hours]');
+  if (!b || Number(b.dataset.hours) === tlHours) return;
+  tlHours = Number(b.dataset.hours);
+  try { localStorage.setItem('shp-tl-hours', String(tlHours)); } catch { /* private window */ }
+  tlSel = null;
+  tlRange();
+  loadTimeline();
+});
+tlRange();
+
+function tlBlocks(d, list, cls, label, title, data) {
+  const span = d.to - d.from || 1;
+  return list.map((s, i) => {
+    const left = ((s.from - d.from) / span) * 100;
+    const width = ((s.to - s.from) / span) * 100;
+    if (width <= 0) return '';
+    const txt = width > 6 ? esc(label(s)) : '';
+    return `<button type="button" class="tl-seg ${cls(s)}" style="left:${left}%;width:${width}%;${s.style || ''}" title="${esc(title(s))}" ${data ? `data-sel="${data(i)}"` : 'tabindex="-1"'}>${txt}</button>`;
+  }).join('');
+}
+
+function drawTimeline() {
+  const d = tlData;
+  if (!d) return;
+  const devs = d.devices || [];
+  $('tl-card').classList.toggle('hidden', !devs.length);
+  if (!devs.length) return;
+  // Legend: only the states that occur.
+  const seen = new Set(devs.flatMap((x) => x.segments.map((s) => s.effective)));
+  $('tl-legend').innerHTML = Object.keys(ST_LABEL).filter((k) => seen.has(k))
+    .map((k) => `<li><span class="sw ${tlClass(k)}"></span>${esc(ST_LABEL[k])}</li>`).join('')
+    + (devs.some((x) => x.segments.some((s) => s.source === 'master')) ? '<li><span class="sw st-heat tl-seg via" style="position:static;display:inline-block"></span>Striped: copied from the master</li>' : '');
+  const temps = (d.plan.setpoint || []).map((s) => s.value).filter((v) => v != null);
+  const lo = Math.min(...temps, 15); const hi = Math.max(...temps, 21);
+  const rows = [];
+  if ((d.plan.setpoint || []).some((s) => s.value != null)) {
+    rows.push(`<div class="tl-row"><span class="lbl muted">Setpoint</span><div class="tl-bar thin">${tlBlocks(d, d.plan.setpoint.map((s) => ({ ...s, style: s.value == null ? 'background:transparent' : `--a:${(0.12 + 0.6 * ((s.value - lo) / (hi - lo || 1))).toFixed(2)}` })), () => 'sp-seg', (s) => (s.value == null ? '' : s.value.toFixed(1)), (s) => `${when(s.from)}–${when(s.to)}: setpoint ${s.value == null ? '–' : `${s.value.toFixed(1)} °C`}`)}</div></div>`);
+  }
+  if ((d.plan.asking || []).some((s) => s.value != null)) {
+    rows.push(`<div class="tl-row"><span class="lbl muted">Asks for heat</span><div class="tl-bar thin">${tlBlocks(d, d.plan.asking, (s) => (s.value == null ? 'st-unknown' : s.value ? 'ask-yes' : 'ask-no'), () => '', (s) => `${when(s.from)}–${when(s.to)}: thermostat ${s.value == null ? 'unknown' : s.value ? 'asks for heat' : 'does not ask for heat'}`)}</div></div>`);
+  }
+  devs.forEach((x, di) => {
+    rows.push(`<div class="tl-row"><span class="lbl"><b>${esc(x.name)}</b></span><div class="tl-bar">${tlBlocks(d, x.segments,
+      (s) => `${tlClass(s.effective)}${s.source === 'master' ? ' via' : ''}${tlSel === `${di}:${x.segments.indexOf(s)}` ? ' sel' : ''}`,
+      (s) => ST_LABEL[s.effective] || s.effective,
+      (s) => `${when(s.from)}–${when(s.to)}: ${ST_LABEL[s.effective] || s.effective}`,
+      (i) => `${di}:${i}`)}</div></div>`);
+  });
+  // The time axis: the start, a few points in between, now.
+  const n = tlHours > 24 ? (tlHours / 24) : 4;
+  const ticks = Array.from({ length: n + 1 }, (_, i) => d.from + ((d.to - d.from) * i) / n);
+  rows.push(`<div class="tl-axis"><span></span><div class="ticks muted">${ticks.map((t, i) => `<span style="left:${(i / n) * 100}%">${i === n ? 'now' : tlHours > 24 ? esc(dayLabel(t)) : clock(t)}</span>`).join('')}</div></div>`);
+  $('tl').innerHTML = rows.join('');
+  // The chosen block: why.
+  const [di, si] = (tlSel || '').split(':').map(Number);
+  const seg = tlSel && devs[di] && devs[di].segments[si];
+  $('tl-detail').classList.toggle('hidden', !seg);
+  if (seg) {
+    $('tl-detail').innerHTML = `<div><b>${esc(devs[di].name)} · ${esc(ST_LABEL[seg.effective] || seg.effective)}</b> <span class="muted small">${esc(when(seg.from))} – ${seg.to >= d.to - 60000 ? 'now' : esc(when(seg.to))} (${dur(seg.to - seg.from)})</span></div>
+      <div class="secondary">${esc(seg.meaning)}</div>
+      ${seg.why.length ? `<ul class="small">${seg.why.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}`;
+  }
+  // What stands out.
+  const ins = devs.filter((x) => x.items.length);
+  $('tl-insights').innerHTML = ins.length
+    ? `<div class="tl-ins"><b class="small">What stands out</b>${ins.map((x) => `<div class="small"><span class="muted">${esc(x.name)}</span><ul>${x.items.map((it) => `<li class="${esc(it.level)}">${esc(it.text)}</li>`).join('')}</ul></div>`).join('')}</div>`
+    : '<p class="muted small">Nothing stands out in this period.</p>';
+  // The same as a list.
+  const all = devs.flatMap((x) => x.segments.map((s) => ({ x, s }))).sort((a, b) => b.s.from - a.s.from);
+  $('tl-table').innerHTML = '<tr><th>From</th><th>Until</th><th>HeatMeister</th><th>State</th><th>Why</th></tr>'
+    + all.map(({ x, s }) => `<tr><td>${esc(when(s.from))}</td><td>${esc(when(s.to))}</td><td>${esc(x.name)}</td><td>${esc(ST_LABEL[s.effective] || s.effective)}</td><td>${esc(s.why.join(' '))}</td></tr>`).join('');
+}
+$('tl').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-sel]');
+  if (!b) return;
+  tlSel = tlSel === b.dataset.sel ? null : b.dataset.sel;
+  drawTimeline();
+});
+
+async function loadTimeline() {
+  try {
+    tlData = await api(`api/heatmeister-timeline?hours=${tlHours}`);
+    $('tl-note').textContent = '';
+  } catch (err) {
+    tlData = null;
+    $('tl-card').classList.remove('hidden');
+    $('tl').innerHTML = '';
+    $('tl-note').textContent = `The HeatMeister history could not be loaded: ${err.message}`;
+  }
+  drawTimeline();
+}
+
 // ---------------------------------------------------------------- start
 fillIcons();
 (async () => {
   try { settings = await api('api/settings'); } catch (err) { showError(err.message); }
   await refreshStatus();
   loadChart();
-  setInterval(() => { if (!document.hidden) loadChart(); }, 5 * 60 * 1000);
+  loadTimeline();
+  setInterval(() => { if (!document.hidden) { loadChart(); loadTimeline(); } }, 5 * 60 * 1000);
   // The app gets changes from Home Assistant right away; the page asks every 5 s.
   setInterval(() => { if (!document.hidden) refreshStatus(); }, 5000);
 })();

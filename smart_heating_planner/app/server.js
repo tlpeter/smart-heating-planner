@@ -11,6 +11,7 @@ const controller = require('./controller');
 const holdStore = require('./hold');
 const activity = require('./activity');
 const history = require('./history');
+const heatmeisterTimeline = require('./heatmeister-timeline');
 const notifier = require('./notify');
 const schedule = require('./schedule');
 const { detect } = require('./entities');
@@ -98,6 +99,7 @@ async function api(req, res, url) {
     if (!result.ok) return sendJson(res, 400, { error: result.errors.join('; '), errors: result.errors });
     ha.log('Settings saved:', Object.keys(body).join(', '));
     history.clear();
+    heatmeisterTimeline.clear();
     await controller.refresh();
     controller.scheduleMqtt(); // a new interval or new HeatMeisters take effect now
     return sendJson(res, 200, result.value);
@@ -134,6 +136,15 @@ async function api(req, res, url) {
     } catch (err) {
       ha.warn('Reading the history failed:', err.message);
       return sendJson(res, 502, { error: `Could not read the history: ${err.message}` });
+    }
+  }
+  if (req.method === 'GET' && p === '/api/heatmeister-timeline') {
+    if (!ha.state.connected) return sendJson(res, 503, { error: 'Not connected to Home Assistant' });
+    try {
+      return sendJson(res, 200, await heatmeisterTimeline.get(Date.now(), Number(url.searchParams.get('hours')) || undefined));
+    } catch (err) {
+      ha.warn('Reading the HeatMeister timeline failed:', err.message);
+      return sendJson(res, 502, { error: `Could not read the HeatMeister history: ${err.message}` });
     }
   }
   if (req.method === 'GET' && p === '/api/notify') {

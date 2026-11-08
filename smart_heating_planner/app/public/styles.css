@@ -234,3 +234,41 @@ table.hms input[type=text] { width: 100%; min-width: 220px; }
 .range button { border: none; background: transparent; color: var(--muted); font: inherit; font-size: 12.5px; padding: 5px 11px; border-radius: 15px; cursor: pointer; }
 .range button[aria-pressed="true"] { background: var(--card); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
 .range button:focus-visible { outline: 2px solid var(--accent); }
+
+/* "Why the HeatMeisters run": one bar per HeatMeister, blocks per state. */
+.tl-row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; margin: 6px 0; }
+.tl-row .lbl { font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-bar { position: relative; height: 26px; border-radius: 6px; background: rgba(var(--rgb-text), 0.05); overflow: hidden; }
+.tl-bar.thin { height: 14px; }
+.tl-seg { position: absolute; top: 0; bottom: 0; border: 0; padding: 0; margin: 0; cursor: pointer; font: inherit; font-size: 0.7em; color: #fff; overflow: hidden; white-space: nowrap; }
+.tl-seg:focus-visible { outline: 2px solid rgb(var(--rgb-text)); outline-offset: -2px; z-index: 1; }
+.tl-seg.sel { box-shadow: inset 0 0 0 2px rgb(var(--rgb-text)); z-index: 1; }
+.tl-seg.via { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.28) 0 4px, transparent 4px 8px); }
+.tl-axis { display: grid; grid-template-columns: 110px 1fr; gap: 8px; }
+.tl-axis .ticks { position: relative; height: 16px; font-size: 0.72em; }
+.tl-axis .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.tl-axis .ticks span:first-child { transform: none; }
+.tl-axis .ticks span:last-child { transform: translateX(-100%); }
+.st-idle, .st-off, .st-slave { background-color: rgba(var(--rgb-grey), 0.35); color: rgb(var(--rgb-text)); }
+.st-heat, .st-running { background-color: var(--series-2); }
+.st-overrun { background-color: var(--series-4); }
+.st-defrost { background-color: var(--series-1); }
+.st-startup { background-color: var(--series-7); }
+.st-cool { background-color: var(--series-3); }
+.st-manual { background-color: var(--series-5); }
+.st-sensor_error { background-color: var(--series-8); }
+.st-unknown { background-color: transparent; }
+.sp-seg { background-color: rgba(var(--rgb-orange), var(--a, 0.3)); color: rgb(var(--rgb-text)); text-align: left; padding-left: 3px; }
+.ask-yes { background-color: rgba(var(--rgb-orange), 0.75); }
+.ask-no { background-color: rgba(var(--rgb-grey), 0.2); }
+.legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+.tl-detail { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: rgba(var(--rgb-text), 0.05); }
+.tl-detail ul, .tl-ins ul { margin: 6px 0 0; padding-left: 18px; }
+.tl-ins { margin-top: 10px; }
+.tl-ins li.tip { color: rgb(var(--rgb-orange)); }
+.tl-ins li.warn { color: rgb(var(--rgb-red)); }
+@media (max-width: 520px) {
+  .tl-row, .tl-axis { grid-template-columns: 1fr; gap: 2px; }
+  .tl-axis > span:first-child { display: none; }
+  .tl-row .lbl { font-size: 0.8em; }
+}
