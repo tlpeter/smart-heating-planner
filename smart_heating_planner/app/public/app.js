@@ -213,7 +213,7 @@ function renderStatus(s) {
   const ago = (ms) => { const m = Math.round((s.at - ms) / 60000); return m < 1 ? 'just now' : `${m} min ago`; };
   const what = rt.send === 'room' ? `room temperature (${rt.source === 'thermostat' ? 'from the thermostat' : esc(rt.source)})` : 'thermostat setpoint';
   const rtLine = !hms.length ? '' : rt.allowed
-    ? `<p class="muted small">For the HeatMeisters: <b>${v(rt.value)}</b> · ${what}${rt.last && rt.last.error ? ` · <span style="color:rgb(var(--rgb-red))">sending failed: ${esc(rt.last.error)}</span>` : ''}</p>`
+    ? `<p class="muted small">For the HeatMeisters: <b>${v(rt.value)}</b> · ${what}${rt.last && rt.last.error ? ` · <span style="color:var(--red)">sending failed: ${esc(rt.last.error)}</span>` : ''}</p>`
     : `<p class="muted small">For the HeatMeisters: <b>${v(rt.value)}</b> · ${what} · not sent by the app (option "Send temperature to HeatMeisters" is off).</p>`;
   const ht = s.heatmeisterTarget || {};
   const htLine = !hms.length ? '' : ht.allowed
@@ -231,7 +231,7 @@ function renderStatus(s) {
             <span>Room <b>${v(h.room)}</b>${h.room_control ? ` · target ${v(h.room_target)}` : ''}</span>
             <span>Fan <b>${h.fan_speed == null ? '–' : `${h.fan_speed} %`}</b>${h.boost ? ' · boost' : ''}${h.manual ? ' · manual' : ''}</span>
             ${rt.allowed && h.sent ? `<span>Sent <b>${v(h.sent.value)}</b> · ${ago(h.sent.at)}</span>` : ''}
-            ${ht.allowed && h.target_sent ? `<span>Target set <b>${v(h.target_sent.value)}</b> · ${ago(h.target_sent.at)}${h.target_sent.error ? ` · <span style="color:rgb(var(--rgb-red))">failed</span>` : ''}</span>` : ''}
+            ${ht.allowed && h.target_sent ? `<span>Target set <b>${v(h.target_sent.value)}</b> · ${ago(h.target_sent.at)}${h.target_sent.error ? ` · <span style="color:var(--red)">failed</span>` : ''}</span>` : ''}
           </div>
         </div>
         <span class="pill ${h.running ? 'change' : 'off'}">${h.running ? 'running' : 'off'}</span>

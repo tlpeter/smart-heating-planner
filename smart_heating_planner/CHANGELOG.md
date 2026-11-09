@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1-dev
+
+- Smart Heating Planner follows your Home Assistant theme, including its colours, card styling, font and light or dark mode, just like Smart Charging Planner.
+
 ## 0.5.8-dev
 
 - New card on Home: **Why the HeatMeisters run**. Per HeatMeister a bar with a block for every control state (idle, heat, overrun, defrost, startup support, cool, manual, sensor error), with the thermostat's setpoint and "asks for heat" above it. Choose **24 h**, **3 days** or **7 days**.

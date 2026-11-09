@@ -4,6 +4,8 @@ A Home Assistant app that heats your house on a week schedule and on who is home
 
 > Status: early development. By default the app only **watches**: it shows what it *would* do. With **Allow control** on (Configuration tab) it sets the thermostat itself. The HeatMeisters run by themselves; the app shows what they do and can send them the room temperature over MQTT and keep their room target equal to the thermostat's setpoint. See [ROADMAP.md](ROADMAP.md).
 
+Smart Heating Planner follows the active Home Assistant theme, including custom colours and light or dark mode.
+
 ## Installation
 
 Choose **one** version before adding the repository:

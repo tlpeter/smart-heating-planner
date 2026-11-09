@@ -8,6 +8,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
+const vm = require('node:vm');
 const fakeHa = require('./fake-ha');
 const { startApp, sleep, APP } = require('./app-runner');
 
@@ -44,6 +45,68 @@ test('the unsaved-changes guard (shared with the other apps) is served and used 
   assert.ok(String(page.data).includes('data-guard="Week schedule"') && String(page.data).includes('data-guard="Notifications"'));
   const js = await req('GET', '/app.js');
   assert.ok(String(js.data).includes('unsavedGuard.writeDone') && String(js.data).includes('unsavedGuard.init'));
+});
+
+test('the page loads the Home Assistant theme and follows theme changes', async () => {
+  const page = await req('GET', '/');
+  assert.match(page.data, /<script src="theme\.js"><\/script>/);
+  const script = await req('GET', '/theme.js');
+  assert.equal(script.status, 200);
+  assert.match(script.headers.get('content-type'), /^application\/javascript/);
+
+  const active = new Map([
+    ['--primary-color', '#a657cc'],
+    ['--primary-background-color', 'rgb(20, 22, 30)'],
+    ['--ha-card-border-radius', '20px'],
+  ]);
+  const copied = new Map();
+  const root = {
+    style: {
+      setProperty: (name, value) => copied.set(name, value),
+      removeProperty: (name) => copied.delete(name),
+    },
+    dataset: {},
+    appendChild() {},
+  };
+  const parent = {
+    document: {
+      documentElement: {},
+      styleSheets: [],
+      defaultView: { getComputedStyle: () => ({ getPropertyValue: (name) => active.get(name) }) },
+    },
+  };
+  let refreshTheme;
+  let browserDark = false;
+  const window = { parent, MutationObserver: true, matchMedia: () => ({ matches: browserDark }) };
+  const document = {
+    documentElement: root,
+    createElement: () => ({ style: {}, remove() {} }),
+    readyState: 'complete',
+    addEventListener() {},
+  };
+  vm.runInNewContext(script.data, {
+    window,
+    document,
+    getComputedStyle: (probe) => probe.style,
+    MutationObserver: class {
+      constructor(callback) { refreshTheme = callback; }
+      observe() {}
+    },
+  });
+  assert.deepEqual(copied, active);
+  assert.equal(root.dataset.scheme, 'dark');
+
+  browserDark = true;
+  active.set('--primary-background-color', 'rgb(250, 250, 250)');
+  active.delete('--ha-card-border-radius');
+  refreshTheme();
+  assert.equal(root.dataset.scheme, 'light');
+  assert.deepEqual(copied, active);
+
+  Object.defineProperty(parent, 'document', { get() { throw new Error('Cross-origin frame'); } });
+  refreshTheme();
+  assert.equal(root.dataset.scheme, 'dark');
+  assert.equal(copied.size, 0);
 });
 
 test('entities: HomeKit thermostat first, three persons with trackers, three HeatMeisters', async () => {
