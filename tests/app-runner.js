@@ -12,10 +12,13 @@ const fakeHa = require('./fake-ha');
 const APP = path.join(__dirname, '..', 'smart_heating_planner', 'app');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function startApp({ port, options = {}, env = {} }) {
+async function startApp({ port, options = {}, env = {}, initialSettings, initialMemory, initialHold }) {
   const fake = await fakeHa.start(0);
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shp-app-'));
   fs.writeFileSync(path.join(dataDir, 'options.json'), JSON.stringify({ log_level: 'info', refresh_seconds: 600, ...options }));
+  for (const [file, value] of [['settings.json', initialSettings], ['memory.json', initialMemory], ['hold.json', initialHold]]) {
+    if (value !== undefined) fs.writeFileSync(path.join(dataDir, file), JSON.stringify(value));
+  }
   const app = spawn(process.execPath, ['server.js'], {
     cwd: APP,
     env: { ...process.env, ...env, DATA_DIR: dataDir, HA_WS_URL: fake.url, HA_TOKEN: 'test-token', SHP_PORT: String(port) },
@@ -35,6 +38,9 @@ async function startApp({ port, options = {}, env = {} }) {
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { data = text; }
+    if (res.status >= 500 || (p === '/api/status' && data.error)) {
+      process.stderr.write(`${method} ${p}: ${data.error || text}\n${output.slice(-5).join('')}`);
+    }
     return { status: res.status, data, headers: res.headers };
   }
 

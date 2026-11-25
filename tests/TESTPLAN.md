@@ -8,6 +8,9 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 
 | Test | Passed |
 |---|---|
+| Eco sensor discovery | 8 of 8 ✓ |
+| Sensor discovery in the real app | 2 of 2 ✓ |
+| Manual settings and Eco | 5 of 5 ✓ |
 | Adaptive Eco Heating | 11 of 11 ✓ |
 | Eco heating in the real app | 7 of 7 ✓ |
 | Settings and situations | 32 of 32 ✓ |
@@ -25,7 +28,43 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.7.0.
+Version: 0.7.1.
+
+## Eco sensor discovery
+
+Units, metadata, device links, ambiguity, unavailable and stale sensors, bounded Recorder checks, gaps, resets and paired learning readiness.
+
+`node tests/sensor-discovery.test.js`
+
+- ✓ metadata, device links, units and role meaning produce generic suggestions
+- ✓ multiple equally suitable rooms require a user choice; thermostat links disambiguate
+- ✓ gas flow, kWh, binary heating, wrong classes and unrelated percentages are rejected
+- ✓ unavailable, nonnumeric, stale and wrong-unit selections remain visible with checks
+- ✓ wrong semantic temperature roles and disabled entities cannot be suggested
+- ✓ history checks distinguish absence, short history, stale history, gaps and gas resets
+- ✓ scans are bounded and cached, preserve manual choices and test paired learning readiness
+- ✓ malformed selections are rejected and large installations have bounded candidate lists
+
+## Sensor discovery in the real app
+
+Scans read Home Assistant without writes or saved-setting changes; saved and unsaved choices remain intact.
+
+`node tests/sensor-discovery-app.test.js`
+
+- ✓ real scan checks actual HA sensors/history without changing settings or sending commands
+- ✓ default scan preserves saved choices and invalid selections are rejected
+
+## Manual settings and Eco
+
+Keep an existing 21°C setting at startup, protect changes while commands settle, keep a freshly read target, and retain saved hold deadlines.
+
+`node tests/manual-hold-app.test.js`
+
+- ✓ startup with an existing manual 21°C target and no prior app command keeps it as a hold
+- ✓ ending the hold resumes the plan; Eco cannot overwrite a manual 21°C change during settling
+- ✓ Keep current setting reads a fresh target and keeps it without a thermostat command
+- ✓ a saved hold keeps its original end time at startup, with Allow control off
+- ✓ startup protection does not turn a matching night setback into a hold just because Eco wants to preheat
 
 ## Adaptive Eco Heating
 

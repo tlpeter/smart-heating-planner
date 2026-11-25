@@ -1,0 +1,32 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fake = require('./fake-ha');
+const { startApp } = require('./app-runner');
+const { fixture, selected } = require('./discovery-fixture');
+let app;
+test.before(async () => { app = await startApp({ port: 18221 }); });
+test.after(() => app && app.stop());
+test('real scan checks actual HA sensors/history without changing settings or sending commands', async () => {
+  const f = fixture();
+  fake.world.extraStates = f.states; fake.world.extraEntities = f.entities; fake.world.extraDevices = f.devices; fake.world.ecoHistory = f.history;
+  await app.req('POST', '/api/settings', { eco: { indoor: selected.indoor } });
+  const before = (await app.req('GET', '/api/settings')).data;
+  const result = await app.req('POST', '/api/eco/discovery', { selections: { ...selected, indoor: 'sensor.unsaved_choice' } });
+  assert.equal(result.status, 200);
+  assert.equal(result.data.roles[0].selected, 'sensor.unsaved_choice');
+  assert.equal(result.data.roles[0].candidates.at(-1).exists, false);
+  assert.equal(result.data.learning.ready, false);
+  assert.deepEqual((await app.req('GET', '/api/settings')).data, before);
+  assert.equal(fake.calls.filter((c) => c.type === 'call_service').length, 0);
+  assert.equal(before.eco.enabled, false);
+  const history = fake.calls.filter((c) => c.type === 'history/history_during_period');
+  assert.ok(history.length);
+  assert.ok(history.every((c) => c.entity_ids.length <= 18));
+});
+test('default scan preserves saved choices and invalid selections are rejected', async () => {
+  const scan = await app.req('POST', '/api/eco/discovery', {});
+  assert.equal(scan.status, 200);
+  assert.equal(scan.data.roles[0].selected, selected.indoor);
+  assert.equal((await app.req('POST', '/api/eco/discovery', { selections: { gas: 'binary_sensor.fake' } })).status, 400);
+});

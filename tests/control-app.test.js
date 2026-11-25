@@ -62,7 +62,7 @@ test('someone home: the thermostat is set to the schedule', async () => {
 });
 
 test('when it already matches, nothing more is sent', async () => {
-  await sleep(GAP + 50);
+  await sleep(Math.max(GAP, SETTLE) + 50);
   const s = await refreshed();
   assert.equal(s.advice.change, false);
   assert.equal(writes().length, 1);
@@ -82,7 +82,7 @@ test('back home within the short wait: not sent yet, then sent', async () => {
   assert.equal(s.advice.target, 20.5);
   assert.equal(writes().length, 2, 'sent too soon after the last write');
   assert.match(s.control.last.why, /waiting/);
-  await sleep(GAP + 50);
+  await sleep(Math.max(GAP, SETTLE) + 50);
   s = await refreshed();
   assert.equal(fakeHa.world.target, 20.5);
   assert.equal(writes().length, 3);
@@ -102,7 +102,7 @@ test('a change by hand on the thermostat is kept as a hold, not overwritten', as
 });
 
 test('ending the hold goes back to the schedule', async () => {
-  await sleep(GAP + 50);
+  await sleep(Math.max(GAP, SETTLE) + 50);
   const r = await req('DELETE', '/api/hold');
   assert.equal(r.data.hold, null);
   assert.equal(fakeHa.world.target, 20.5);
@@ -110,7 +110,7 @@ test('ending the hold goes back to the schedule', async () => {
 });
 
 test('a failing thermostat: logged, not hammered', async () => {
-  await sleep(GAP + 50);
+  await sleep(Math.max(GAP, SETTLE) + 50);
   fakeHa.world.failWrites = true;
   await req('POST', '/api/hold', { temp: 21, minutes: 30 });
   let s = await status();
@@ -125,10 +125,10 @@ test('a failing thermostat: logged, not hammered', async () => {
 
 test('the daily limit stops further writes', async () => {
   // Limit is 6; 5 tries so far (4 sent, 1 failed).
-  await sleep(GAP + 50);
+  await sleep(Math.max(GAP, SETTLE) + 50);
   await refreshed(); // 6th: sends 21
   assert.equal(fakeHa.world.target, 21);
-  await sleep(GAP + 50);
+  await sleep(Math.max(GAP, SETTLE) + 50);
   await req('DELETE', '/api/hold');
   const s = await status();
   assert.equal(s.advice.change, true);

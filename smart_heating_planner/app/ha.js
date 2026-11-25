@@ -62,6 +62,7 @@ const READ_ONLY_COMMANDS = new Set([
   'get_states',
   'get_config',
   'config/entity_registry/list',
+  'config/device_registry/list',
   // Live updates: Home Assistant tells the app when one of the chosen
   // entities changes (only reads), and the app can stop that again.
   'subscribe_entities',

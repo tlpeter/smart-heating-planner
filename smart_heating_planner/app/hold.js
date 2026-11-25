@@ -23,7 +23,7 @@ function set(temp, until, now = Date.now(), source = 'app') {
   const t = Number(temp);
   if (!Number.isFinite(t) || t < MIN_TEMP || t > MAX_TEMP) return { ok: false, error: `Temperature must be between ${MIN_TEMP} and ${MAX_TEMP} °C` };
   if (!(until > now) || until - now > 7 * 86400000) return { ok: false, error: 'The end time must be within the next 7 days' };
-  const hold = { temp: roundTemp(t), until: Math.round(until), since: now, source: source === 'thermostat' ? 'thermostat' : 'app' };
+  const hold = { temp: roundTemp(t), until: Math.round(until), since: now, source: ['thermostat', 'startup'].includes(source) ? source : 'app' };
   writeJsonAtomic(FILE, hold);
   return { ok: true, hold };
 }

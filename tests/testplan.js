@@ -19,6 +19,9 @@ const VERSION = require(path.join(ROOT, 'smart_heating_planner', 'app', 'package
 
 // The test files, in the order of the plan, with what they cover.
 const FILES = [
+  ['sensor-discovery.test.js', 'Eco sensor discovery', 'Units, metadata, device links, ambiguity, unavailable and stale sensors, bounded Recorder checks, gaps, resets and paired learning readiness.'],
+  ['sensor-discovery-app.test.js', 'Sensor discovery in the real app', 'Scans read Home Assistant without writes or saved-setting changes; saved and unsaved choices remain intact.'],
+  ['manual-hold-app.test.js', 'Manual settings and Eco', 'Keep an existing 21°C setting at startup, protect changes while commands settle, keep a freshly read target, and retain saved hold deadlines.'],
   ['eco.test.js', 'Adaptive Eco Heating', 'Recorder learning, stale readings, deadlines, presence, holds, cold weather, demand, write budgets, comparable gas windows and meter resets.'],
   ['eco-app.test.js', 'Eco heating in the real app', 'Validated settings, observe without extra commands, adaptive preheat through existing write gates, HeatMeister targets, holds and overnight window bookkeeping.'],
   ['settings.test.js', 'Settings and situations', 'The real app ("Allow control" off) against a fake Home Assistant (tado over HomeKit and Tado CE, Peter, Yvonne and Cheyenne with GPS, router and Bluetooth trackers, three HeatMeisters over MQTT). Everything goes through the same API as the page.'],

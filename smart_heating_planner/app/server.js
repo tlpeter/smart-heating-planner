@@ -16,6 +16,7 @@ const notifier = require('./notify');
 const schedule = require('./schedule');
 const { detect } = require('./entities');
 const diagnostics = require('./diagnostics');
+const sensorDiscovery = require('./sensor-discovery');
 
 const PORT = Number(process.env.SHP_PORT) || 8099; // SHP_PORT: tests only
 const APP_VERSION = require('./package.json').version;
@@ -94,6 +95,14 @@ async function api(req, res, url) {
     return sendJson(res, 200, { version: APP_VERSION, connected: ha.state.connected, ha_version: ha.state.version, ...controller.getStatus() });
   }
   if (req.method === 'GET' && p === '/api/settings') return sendJson(res, 200, settings.get());
+  if (req.method === 'POST' && p === '/api/eco/discovery') {
+    if (!ha.state.connected) return sendJson(res, 503, { error: 'Not connected to Home Assistant' });
+    const body = await readBody(req);
+    let selected;
+    try { selected = sensorDiscovery.selections(body.selections ?? settings.get().eco); }
+    catch (err) { throw badRequest(err.message); }
+    return sendJson(res, 200, await sensorDiscovery.scan(selected, settings.get().thermostat));
+  }
   if (req.method === 'POST' && p === '/api/settings') {
     const body = await readBody(req);
     const result = settings.save(body);
@@ -120,8 +129,17 @@ async function api(req, res, url) {
       const minutes = Number(body.minutes ?? settings.get().hold_default_minutes);
       until = Number.isFinite(minutes) ? now + Math.round(minutes) * 60000 : null;
     }
-    const r = holdStore.set(body.temp, until, now);
+    let temp = body.temp;
+    if (body.use_current === true) {
+      if (!ha.state.connected) return sendJson(res, 503, { error: 'Not connected to Home Assistant' });
+      const states = await ha.call({ type: 'get_states' });
+      const th = controller.thermostatFrom(states, settings.get().thermostat);
+      if (!th.available || !Number.isFinite(th.target) || th.state === 'off') throw badRequest('The selected thermostat has no available active setpoint');
+      temp = th.target;
+    }
+    const r = holdStore.set(temp, until, now, body.use_current === true ? 'thermostat' : 'app');
     if (!r.ok) return sendJson(res, 400, { error: r.error });
+    if (body.use_current === true) controller.acceptCurrentTarget(r.hold.temp, now);
     ha.log('Manual hold set:', r.hold.temp, '°C until', new Date(r.hold.until).toISOString());
     return sendJson(res, 200, await controller.refresh());
   }

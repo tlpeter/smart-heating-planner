@@ -54,7 +54,8 @@ function learn(history, config, now) {
 function live(states, config, now) {
   return Object.fromEntries(['indoor', 'outdoor', 'heating_demand', 'gas', 'flow', 'return'].map((k) => {
     const e = states.find((s) => s.entity_id === config[k]);
-    let v = e && now - stamp(e) <= FRESH && stamp(e) <= now + 60000 ? number(e.state) : null;
+    const report = e ? (e.last_reported ? Date.parse(e.last_reported) : stamp(e)) : NaN;
+    let v = e && now - report <= FRESH && report <= now + 60000 ? number(e.state) : null;
     const unit = e && e.attributes && e.attributes.unit_of_measurement;
     if (v !== null && ((['indoor', 'outdoor', 'flow', 'return'].includes(k) && unit !== '°C') || (k === 'heating_demand' && (unit !== '%' || v < 0 || v > 100)) || (k === 'gas' && (v < 0 || !['m³', 'm3'].includes(unit))))) v = null;
     return [k, v ?? null];

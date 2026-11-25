@@ -99,7 +99,9 @@
             </select>
           </label>
           <button class="btn primary" type="submit">Hold</button>
+          <button id="hold-current" class="btn" type="button" disabled>Keep current setting</button>
         </form>
+        <p id="hold-explanation" class="muted small">A manual hold takes priority over the schedule and Eco heating.</p>
       </div>
 
       <div class="card">
@@ -168,6 +170,18 @@
         <p id="eco-error" class="small"></p>
       </div>
       <form id="eco-form" data-guard="Eco heating settings">
+        <div class="card">
+          <h2><span class="shape sm c-green" data-icon="settings"></span>Sensor discovery</h2>
+          <p class="muted small">Automatically find compatible Home Assistant sensors. Review each suggestion and its history before saving. Existing selections are kept.</p>
+          <div class="actions" data-guard-ignore>
+            <button id="eco-scan" class="btn" type="button">Scan for sensors</button>
+            <button id="eco-apply" class="btn" type="button" disabled>Apply suggested sensors</button>
+          </div>
+          <p id="eco-scan-msg" class="small" aria-live="polite"></p>
+          <div id="eco-discovery" data-guard-ignore></div>
+          <p id="eco-learning" class="muted small"></p>
+          <p class="muted small">Apply fills empty fields only. Save Eco settings to keep the choices. Scanning and applying suggestions do not enable Eco or Allow control.</p>
+        </div>
         <div class="card">
           <h2><span class="shape sm c-orange" data-icon="settings"></span>Eco heating settings</h2>
           <label class="switch"><input id="eco-enabled" type="checkbox"><span>Enable Adaptive Eco Heating</span></label>

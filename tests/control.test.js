@@ -70,8 +70,8 @@ test('the same target is not sent again before the thermostat had time to show i
   const same = control.shouldSend({ now: NOW, advice: { change: true, target: 20 }, thermostat: th(21), memory, maxWritesPerDay: 48 });
   assert.equal(same.send, false);
   assert.match(same.why, /show the last change/);
-  // A new advice (another temperature) may go after the 2 minutes.
-  assert.equal(control.shouldSend({ now: NOW, advice: { change: true, target: 18 }, thermostat: th(21), memory, maxWritesPerDay: 48 }).send, true);
+  // A different advice, including an Eco step, must also wait for settling.
+  assert.equal(control.shouldSend({ now: NOW, advice: { change: true, target: 18 }, thermostat: th(21), memory, maxWritesPerDay: 48 }).send, false);
   // After 3 minutes the change by hand is noticed (and kept as a hold).
   assert.equal(control.manualChange({ now: NOW + MIN, thermostat: th(21), lastSent: memory.lastSent }), 21);
 });

@@ -2,6 +2,26 @@
 
 ## Adaptive Eco Heating
 
+### Sensor discovery
+
+The **Sensor discovery** card scans automatically when you open Eco heating; **Scan for sensors** repeats the checks. It reads the current HA sensors, entity/device registries and a bounded set of Recorder histories. Suggestions consider device class, state class, unit, device relationships, entity ID and friendly name. They are generic, not hard-coded to a household. Device registry access may be unavailable; the page explains when device relationships could not be checked.
+
+Review the dropdown for each role. Equally plausible matches are left for you to choose. A sensor can be compatible but unavailable, stale or short of history. The card shows actual/expected units, existence, numeric availability, recent live reporting, historical sample counts, gaps and paired learning readiness. Cumulative gas needs m³ and state class `total` or `total_increasing`; flow/energy readings and binary heating states are not suitable replacements. Sensors with missing metadata may need manual confirmation.
+
+**Apply suggested sensors** fills only empty form fields. Existing saved or unsaved selections are never overwritten by scan/apply. Selecting a dropdown alternative is an explicit edit and checks that sensor's history. Manual entity-ID entry remains available. **Save Eco settings** is still required. Scan/apply does not enable Eco, change its mode, save settings, refresh heating control or change HA configuration.
+
+At most twenty candidates plus the current selection are shown per role. A scan inspects history for at most eighteen sensors (current selections and top candidates), in one seven-day Recorder request, cached for one minute. Unchecked alternatives say so; selecting one and rescanning checks it. Recorder failure is shown separately from no history. Having twelve readings alone is not learning readiness: the combined indoor/outdoor/demand selection must meet the existing paired heating and cooling requirements.
+
+Live freshness uses `last_reported` when supplied by HA, otherwise `last_updated`. Recorder timestamps usually describe changes; an unchanged sensor may still report regularly. The page therefore labels its median recorded interval and warns that gaps do not prove the sensor stopped reporting. The learning model conservatively treats long Recorder gaps as unknown.
+
+### Manual thermostat settings
+
+A hold always takes priority over the schedule, presence and Adaptive Eco Heating. For an existing manual setting such as **21°C**, use **Home → Manual hold → Keep current 21.0°C setting**. Choose a duration or **Until the next switch point** first. The app reads the thermostat again when clicked and holds that fresh target, without sending a thermostat command just to repeat it. The hold and its end time survive restarts. **End hold** resumes the plan, subject to the normal write safeguards.
+
+With Allow control on, a different target on the thermostat is recognised after the three-minute settling period following the last app command. It is then held until the next switch point (default) or for the configured default hold length, according to **Settings → A change on the thermostat itself**. During settling, all new advice waits, including a different Eco step, so it cannot overwrite a manual change before recognising it. A command is still subject to the existing minimum interval and daily limit.
+
+At process start, if a thermostat is already configured, its target differs from the plan and no previous app command is remembered, the app conservatively adopts the existing setting as a temporary hold. The UI labels this as an existing startup setting: its origin cannot be proven. First-time thermostat selection still begins normal scheduled control. A previously saved active hold retains its original end time. With Allow control off, the app does not automatically classify thermostat changes as holds and never sends thermostat commands; Keep current setting can still make the advice reflect your choice. The thermostat's own mode is never changed.
+
 Open the **Eco heating** tab. The feature is **off by default**, including on dev. Enable it and start with **Observe only**: normal heating continues unchanged and Eco sends no additional commands. **Adaptive heating** changes the advice; actual thermostat writes still require **Allow control**. No automations, helpers, scripts or Node-RED changes are required.
 
 Choose indoor and outdoor temperature sensors in °C and a heating-demand sensor in %. Cumulative gas in m³ is optional; flow and return temperature sensors in °C are optional and shown for context. Enter existing `sensor.*` entity IDs. The server validates these settings. Missing, unknown, wrong-unit and older-than-30-minute live readings block adaptive preheating. Sensors that report infrequently may therefore remain unsuitable even while their state looks unchanged.

@@ -31,6 +31,9 @@ const memory = { lastHomeAt: null, track: {}, lastKey: null, lastSent: null, wri
 delete memory.hm; // older versions
 // A write from an earlier period with control on says nothing about now.
 if (!options.allow_control) memory.lastSent = null;
+// Only a thermostat already configured at process start is adopted. Choosing
+// one for the first time in Settings still starts normal scheduled control.
+let startupThermostat = settings.get().thermostat;
 
 let status = { ready: false, message: 'Starting…' };
 let lastControl = null; // { at, sent, why, error }
@@ -300,6 +303,7 @@ function evaluate(states, now = Date.now()) {
   const ignored = s.schedule_needs_presence === false;
   const pres = { effectiveHome: noPersons || ignored || delay.effectiveHome, waitingUntil: ignored ? null : delay.waitingUntil, approaching: way.approaching, ignored };
   let advice = decideTarget({ now, timeZone: tz, point, presence: pres, hold, settings: s, thermostat });
+  const normalTarget = advice.target;
   const values = eco.live(states, s.eco, now);
   const model = ecoHistory.getModel(s.eco);
   const ecoPlan = eco.plan({ config: s.eco, model, values, baseline: advice, point, presence: pres, hold, thermostat, now,
@@ -356,6 +360,7 @@ function evaluate(states, now = Date.now()) {
     timeZone: tz,
     setup: { thermostat: !!s.thermostat, persons: s.persons.filter((p) => p.counts).length, heatmeisters: s.heatmeisters.length },
     advice,
+    normalTarget,
     eco: { ...ecoPlan, values, error: ecoHistory.getError(),
       model: model ? { coolingSamples: model.coolingSamples, heatingSamples: model.heatingSamples, latest: model.latest, loss: model.loss, capacity: model.capacity } : null,
       evaluation: eco.evaluation(model, memory.ecoWindows || [], now) },
@@ -388,17 +393,20 @@ async function act(states, current, now) {
   const s = settings.get();
   let st = current;
 
-  const manual = control.manualChange({ now, thermostat: st.thermostat, lastSent: memory.lastSent });
+  const startup = startupThermostat === s.thermostat && st.thermostat.available && st.thermostat.state !== 'off' && Number.isFinite(st.thermostat.target);
+  const adopt = startup && !memory.lastSent && !st.hold && Math.abs(st.thermostat.target - st.normalTarget) >= 0.25;
+  if (startup || (startupThermostat && startupThermostat !== s.thermostat)) startupThermostat = '';
+  const manual = adopt ? st.thermostat.target : control.manualChange({ now, thermostat: st.thermostat, lastSent: memory.lastSent });
   if (manual !== null) {
     const point = schedule.current(s.schedule, now, ha.state.timeZone || 'UTC');
     const until = s.manual_change_until === 'next' && point ? point.next.at : now + s.hold_default_minutes * 60000;
-    const r = holdStore.set(manual, until, now, 'thermostat');
+    const r = holdStore.set(manual, until, now, adopt ? 'startup' : 'thermostat');
     // Take the new value as "what the thermostat has" so it is not noticed again.
     memory.lastSent = { temp: manual, at: now };
     if (r.ok) {
       ha.log('Thermostat changed by hand to', manual, '°C - kept until', new Date(until).toISOString());
-      activity.add({ event: 'manual', target: manual, source: 'hold', reason: `Changed on the thermostat to ${manual} °C`, thermostat: manual, sent: false }, now);
-      notifier.send('manual_change', 'Changed on the thermostat', `Kept at ${t1(manual)} until ${clock(until)}. Then the app follows the plan again.`, { now });
+      activity.add({ event: 'manual', target: manual, source: 'hold', reason: adopt ? `Kept the existing ${manual} °C setting at startup; its origin is unknown` : `Changed on the thermostat to ${manual} °C`, thermostat: manual, sent: false }, now);
+      notifier.send('manual_change', adopt ? 'Existing thermostat setting kept' : 'Changed on the thermostat', `Kept at ${t1(manual)} until ${clock(until)}. Then the app follows the plan again.`, { now });
     }
     st = evaluate(states, now);
   }
@@ -431,6 +439,14 @@ async function act(states, current, now) {
   st.control.lastSent = memory.lastSent;
   st.control.writesToday = (memory.writes || []).filter((t) => now - t < 86400000).length;
   return st;
+}
+
+// The user explicitly chose to keep the freshly read thermostat target.
+// Remember it as the baseline, without counting or sending a thermostat write.
+function acceptCurrentTarget(temp, now) {
+  memory.lastSent = { temp, at: now };
+  startupThermostat = '';
+  saveMemory();
 }
 
 // The entities that change what the page shows or what the app decides.
@@ -529,4 +545,4 @@ function start() {
   scheduleMqtt();
 }
 
-module.exports = { evaluate, refresh, start, scheduleMqtt, getStatus: () => ({ ...status, live: live.id !== null }), thermostatFrom, watchedIds };
+module.exports = { evaluate, refresh, start, scheduleMqtt, getStatus: () => ({ ...status, live: live.id !== null }), thermostatFrom, watchedIds, acceptCurrentTarget };

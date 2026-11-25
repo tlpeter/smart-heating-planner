@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1-dev — 2026-11-25
+
+- Find Eco sensors from Home Assistant metadata and device links, with dropdown alternatives and live/history checks (issue #13, follow-up to #12).
+- Scan without changing settings or heating. Apply suggestions only to empty fields, then save explicitly; keep manual selections and show missing or insufficient history.
+- Add Keep current setting for manual thermostat targets such as 21°C. Preserve an existing target at startup when no prior app command is known, and protect manual changes during command settling.
+- Add discovery and manual-hold tests, update the manual, and show full errors when a test fails.
+
 ## 0.7.0-dev — 2026-11-25
 
 - Add Adaptive Eco Heating and a Mushroom-style Eco settings page (issue #12). It starts off and in observe mode.

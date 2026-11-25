@@ -87,7 +87,7 @@ async function api(path, opts = {}) {
   });
   const data = await res.json().catch(() => ({}));
   // Tell the unsaved-changes guard whether a save worked (unsaved.js).
-  if (opts.method && opts.method !== 'GET' && window.unsavedGuard) unsavedGuard.writeDone(res.ok, data.error || `HTTP ${res.status}`);
+  if (opts.guard !== false && opts.method && opts.method !== 'GET' && window.unsavedGuard) unsavedGuard.writeDone(res.ok, data.error || `HTTP ${res.status}`);
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
@@ -205,8 +205,13 @@ function renderStatus(s) {
 
   $('hold-active').classList.toggle('hidden', !s.hold);
   $('hold-form').classList.toggle('hidden', !!s.hold);
+  $('hold-current').disabled = !s.thermostat.available || s.thermostat.target == null || s.thermostat.state === 'off';
+  $('hold-current').textContent = s.thermostat.target == null ? 'Keep current setting' : `Keep current ${t1(s.thermostat.target)} setting`;
+  $('hold-explanation').textContent = s.hold
+    ? `Keeping ${t1(s.hold.temp)} until ${dateTime(s.hold.until)}. The schedule and Eco heating resume after this hold. HeatMeister targets follow the thermostat when their option is on.`
+    : 'A manual hold takes priority over the schedule and Eco heating. Choose a duration, then Keep current setting to preserve the thermostat target. Changes made on the thermostat are recognised with Allow control on after its three-minute settling time.';
   if (s.hold) {
-    $('hold-what').textContent = s.hold.source === 'thermostat' ? 'Changed on the thermostat: keeping' : 'Holding';
+    $('hold-what').textContent = s.hold.source === 'startup' ? 'Existing setting at startup: keeping' : s.hold.source === 'thermostat' ? 'Changed on the thermostat: keeping' : 'Holding';
     $('hold-temp').textContent = t1(s.hold.temp);
     $('hold-until').textContent = dateTime(s.hold.until);
   }
@@ -261,6 +266,11 @@ $('hold-form').addEventListener('submit', async (e) => {
 });
 $('hold-end').addEventListener('click', async () => {
   try { renderStatus(await api('api/hold', { method: 'DELETE' })); } catch (err) { showError(err.message); }
+});
+$('hold-current').addEventListener('click', async () => {
+  const v = $('hold-for').value;
+  try { renderStatus(await api('api/hold', { method: 'POST', body: v === 'next' ? { use_current: true, until: 'next' } : { use_current: true, minutes: Number(v) } })); }
+  catch (err) { showError(err.message); }
 });
 
 // ---------------------------------------------------------------- schedule
@@ -483,6 +493,71 @@ function loadEcoPage() {
   $('eco-preferred').value = e.demand;
   $('eco-step').value = e.step;
   for (const k of ECO_SENSORS) $(`eco-${k}`).value = e[k];
+  scanEco();
+}
+let ecoDiscovery = null;
+let ecoScanSequence = 0;
+const ECO_HISTORY_LABEL = { not_checked: 'History not checked yet; select this sensor and rescan', no_history: 'No Recorder history',
+  insufficient_history: 'Insufficient history', stale_history: 'History is stale', history_gaps: 'History has gaps',
+  usable_history: 'Usable history', meter_reset: 'Gas meter reset detected; affected windows are excluded', recorder_error: 'Recorder could not be read' };
+function ecoSelections() { return Object.fromEntries(ECO_SENSORS.map((k) => [k, $(`eco-${k}`).value.trim()])); }
+function renderDiscovery() {
+  if (!ecoDiscovery) return;
+  const current = ecoSelections();
+  $('eco-discovery').innerHTML = ecoDiscovery.roles.map((r) => {
+    const chosen = current[r.key] || r.suggested || '';
+    const c = r.candidates.find((x) => x.entity_id === chosen);
+    const extra = chosen && !c ? `<option value="${esc(chosen)}" selected>${esc(chosen)} (not checked)</option>` : '';
+    const checks = c ? [c.exists ? 'Exists' : 'Does not exist', c.available ? 'Available and numeric' : 'Unavailable or not numeric',
+      c.compatible ? 'Compatible unit and role' : 'Incompatible unit, metadata or role', c.liveFresh ? 'Recent live reading' : 'Live reading is stale or its report time is unknown',
+      ECO_HISTORY_LABEL[c.history.status], `${c.history.samples} usable history samples`,
+      c.history.to ? `Latest history: ${dateTime(c.history.to)}` : '',
+      c.history.medianMinutes == null ? '' : `Median recorded interval: ${c.history.medianMinutes.toFixed(1)} min; gaps: ${c.history.gaps || 0}`].filter(Boolean).join(' · ') : r.reason;
+    const summary = c ? `${!c.exists ? 'Sensor does not exist' : !c.available ? 'Unavailable or not numeric' : !c.compatible ? 'Check compatibility' : !c.liveFresh ? 'Live reading is stale' : 'Compatible live sensor'} · ${ECO_HISTORY_LABEL[c.history.status]} (${c.history.samples} samples)` : r.reason;
+    return `<div class="discovery-row"><label>${esc(r.label)} · expected ${esc(r.unit)}<select data-eco-role="${r.key}"><option value="">– choose or enter below –</option>${extra}${r.candidates.map((x) => `<option value="${esc(x.entity_id)}" ${x.entity_id === chosen ? 'selected' : ''}>${esc(x.name)} (${esc(x.entity_id)})${x.entity_id === r.suggested ? ' · Suggested' : ''}${!x.compatible ? ' · Check compatibility' : ''}</option>`).join('')}</select></label>
+      ${chosen ? `<p class="muted small">${esc(chosen)}</p>` : ''}<p class="small">${esc(summary)}</p><details class="small"><summary>Show sensor checks</summary><p>${esc(checks)}</p><p class="muted">${esc(c ? `Actual unit: ${c.unit || 'unknown'}. ${c.reasons.join('. ')}. ${c.history.note || ''}` : r.reason)}</p></details></div>`;
+  }).join('');
+  const l = ecoDiscovery.learning;
+  const changed = ecoDiscovery.roles.some((r) => (current[r.key] || r.suggested || '') !== (r.selected || r.suggested || ''));
+  $('eco-learning').textContent = changed ? 'Sensor choices changed. Scan again to check this combination.' : `${l.reason}. ${l.heatingSamples} heating / ${l.coolingSamples} cooling samples. History checked for ${ecoDiscovery.inspectedSensors} sensors (maximum ${ecoDiscovery.historyLimit} per scan).`;
+  $('eco-apply').disabled = !ecoDiscovery.roles.some((r) => r.suggested && !current[r.key]);
+}
+async function scanEco() {
+  const seq = ++ecoScanSequence;
+  $('eco-scan').disabled = true;
+  $('eco-apply').disabled = true;
+  $('eco-scan-msg').textContent = 'Checking live sensors, device links and Recorder history…';
+  try {
+    const data = await api('api/eco/discovery', { method: 'POST', guard: false, body: { selections: ecoSelections() } });
+    if (seq !== ecoScanSequence) return;
+    ecoDiscovery = data;
+    $('eco-scan-msg').textContent = `Scanned ${dateTime(data.scannedAt)}. ${[data.error, ...data.warnings].filter(Boolean).join(' ')}`;
+    renderDiscovery();
+  } catch (err) { if (seq === ecoScanSequence) { ecoDiscovery = null; $('eco-discovery').textContent = ''; $('eco-learning').textContent = ''; $('eco-scan-msg').textContent = err.message; } }
+  finally { if (seq === ecoScanSequence) $('eco-scan').disabled = false; }
+}
+$('eco-scan').addEventListener('click', scanEco);
+$('eco-apply').addEventListener('click', () => {
+  if (!ecoDiscovery) return;
+  let count = 0;
+  for (const r of ecoDiscovery.roles) {
+    const input = $(`eco-${r.key}`);
+    if (!input.value.trim() && r.suggested) { input.value = r.suggested; count++; }
+  }
+  if (count) unsavedGuard.markDirty($('eco-form'));
+  $('eco-scan-msg').textContent = `${count} empty fields filled. Existing selections kept. Save Eco settings to keep these choices.`;
+  renderDiscovery();
+});
+$('eco-discovery').addEventListener('change', (event) => {
+  const role = event.target.dataset.ecoRole;
+  if (!ECO_SENSORS.includes(role)) return;
+  $(`eco-${role}`).value = event.target.value;
+  unsavedGuard.markDirty($('eco-form'));
+  scanEco();
+});
+for (const role of ECO_SENSORS) {
+  $(`eco-${role}`).addEventListener('change', scanEco);
+  $(`eco-${role}`).addEventListener('input', renderDiscovery);
 }
 function renderEco(e) {
   if (!e) return;

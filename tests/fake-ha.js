@@ -39,6 +39,8 @@ function freshWorld() {
     failHmTarget: false,
     failHistory: false,
     extraStates: [], // synthetic sensors used by Eco tests; no household data
+    extraEntities: [],
+    extraDevices: [],
     ecoHistory: null,
     failNotify: false,
     notifications: [], // { service, title, message, data } sent by the app
@@ -199,7 +201,7 @@ function registries() {
     { id: 'dev_tado_hk', manufacturer: 'tado', model: 'Smart Thermostat', name: 'tado Smart Thermostat' },
     { id: 'dev_tado_cloud', manufacturer: 'tado', model: 'RU02', name: 'Verwarming' },
   ];
-  return { entities, devices };
+  return { entities: [...entities, ...world.extraEntities], devices: [...devices, ...world.extraDevices] };
 }
 
 function start(port = 0) {

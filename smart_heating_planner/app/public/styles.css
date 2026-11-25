@@ -61,6 +61,10 @@
 .ctable { font-size: 12px; }
 .ctable th, .ctable td { padding: 3px 8px; text-align: left; }
 .checks.col { flex-direction: column; gap: 6px; }
+.discovery-row { padding: 12px 0; }
+.discovery-row + .discovery-row { border-top: 1px solid var(--border); }
+.discovery-row p { overflow-wrap: anywhere; margin: 6px 0; }
+.discovery-row select { width: 100%; min-width: 0; }
 
 * { box-sizing: border-box; }
 body {

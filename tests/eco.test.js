@@ -48,6 +48,8 @@ test('live readings require fresh timestamps and the correct units', () => {
   const states = [{ entity_id: config.indoor, state: '18', last_updated: new Date(now).toISOString(), attributes: { unit_of_measurement: '°C' } }];
   assert.equal(eco.live(states, config, now).indoor, 18);
   assert.equal(eco.live(states, config, now + eco.HOUR).indoor, null);
+  states[0].last_reported = new Date(now + eco.HOUR).toISOString();
+  assert.equal(eco.live(states, config, now + eco.HOUR).indoor, 18, 'an unchanged value can have a fresh report');
   states[0].attributes.unit_of_measurement = '°F';
   assert.equal(eco.live(states, config, now).indoor, null);
 });
