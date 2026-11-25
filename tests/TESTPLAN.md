@@ -8,6 +8,8 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 
 | Test | Passed |
 |---|---|
+| Adaptive Eco Heating | 11 of 11 ✓ |
+| Eco heating in the real app | 7 of 7 ✓ |
 | Settings and situations | 32 of 32 ✓ |
 | Control (Allow control on) | 10 of 10 ✓ |
 | HeatMeister temperature (MQTT on) | 10 of 10 ✓ |
@@ -23,7 +25,39 @@ A separate check (`.github/workflows/ha-core-compat.yml`) runs the app against a
 | Finding entities | 3 of 3 ✓ |
 | Saving | 5 of 5 ✓ |
 
-Version: 0.6.1.
+Version: 0.7.0.
+
+## Adaptive Eco Heating
+
+Recorder learning, stale readings, deadlines, presence, holds, cold weather, demand, write budgets, comparable gas windows and meter resets.
+
+`node tests/eco.test.js`
+
+- ✓ disabled and observe leave the normal heating decision in control
+- ✓ learns weather-normalized rates, sample counts, freshness and confidence
+- ✓ missing values and Recorder gaps do not become zero-degree samples
+- ✓ live readings require fresh timestamps and the correct units
+- ✓ manual hold, absence and a lower next schedule point take priority
+- ✓ gradual preheat raises at most one step, waits and respects demand feedback
+- ✓ comfort deadline, cold weather and write budget trigger normal heating
+- ✓ adaptive advice still goes through daily limits and the existing write interval
+- ✓ total gas includes the entire window; resets and gaps invalidate it
+- ✓ evaluation requires comparable, complete windows and never claims savings
+- ✓ Recorder cache refreshes, invalidates sensor changes and handles failures
+
+## Eco heating in the real app
+
+Validated settings, observe without extra commands, adaptive preheat through existing write gates, HeatMeister targets, holds and overnight window bookkeeping.
+
+`node tests/eco-app.test.js`
+
+- ✓ Eco settings validate partial changes, enum values, ranges and entities
+- ✓ real app: observe uses Recorder but sends no additional thermostat commands
+- ✓ real app: adaptive preheat uses the existing thermostat and HeatMeister write gates
+- ✓ real app: a manual hold overrides Eco and disabled Eco keeps the normal plan
+- ✓ window bookkeeping excludes gaps, holds and setting changes, including DST
+- ✓ real app: adaptive advice with all Allow options off is strictly read-only
+- ✓ real app: stale demand and Recorder failures fall back to the normal schedule
 
 ## Settings and situations
 

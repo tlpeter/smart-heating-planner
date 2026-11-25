@@ -17,6 +17,8 @@ const presence = require('./presence');
 const holdStore = require('./hold');
 const activity = require('./activity');
 const control = require('./control');
+const eco = require('./eco');
+const ecoHistory = require('./eco-history');
 const heatmeister = require('./heatmeister');
 const notifier = require('./notify');
 const { decideTarget, heatDemand } = require('./decide');
@@ -201,7 +203,7 @@ async function setTargets(states, st, now) {
   try {
     const s = settings.get();
     memory.hmTarget = memory.hmTarget || {};
-    const setpoint = st.thermostat && st.thermostat.available ? st.thermostat.target : null;
+    const setpoint = st.effectiveSetpoint ?? (st.thermostat && st.thermostat.available ? st.thermostat.target : null);
     const entities = s.heatmeisters.map((h) => ({ prefix: h.prefix, entity: heatmeister.targetEntity(states, h.prefix) }));
     const allowed = entities.map((x) => x.entity && x.entity.entity_id).filter(Boolean);
     for (const { entity } of entities) {
@@ -297,7 +299,20 @@ function evaluate(states, now = Date.now()) {
   // Option "only when someone is home" off: always the schedule.
   const ignored = s.schedule_needs_presence === false;
   const pres = { effectiveHome: noPersons || ignored || delay.effectiveHome, waitingUntil: ignored ? null : delay.waitingUntil, approaching: way.approaching, ignored };
-  const advice = decideTarget({ now, timeZone: tz, point, presence: pres, hold, settings: s, thermostat });
+  let advice = decideTarget({ now, timeZone: tz, point, presence: pres, hold, settings: s, thermostat });
+  const values = eco.live(states, s.eco, now);
+  const model = ecoHistory.getModel(s.eco);
+  const ecoPlan = eco.plan({ config: s.eco, model, values, baseline: advice, point, presence: pres, hold, thermostat, now,
+    lastSent: memory.lastSent, writesRemaining: options.max_writes_per_day - (memory.writes || []).filter((t) => now - t < 86400000).length });
+  if (ecoPlan.active) advice = { target: ecoPlan.proposedTarget, source: 'eco', reason: ecoPlan.reason,
+    change: Math.abs(thermostat.target - ecoPlan.proposedTarget) >= 0.25 };
+  ecoHistory.recordWindow(memory, s.eco, s, tz, now, options.allow_control, hold);
+  if (s.eco.enabled) {
+    const ecoKey = JSON.stringify([ecoPlan.reason, ecoPlan.confidence, ecoPlan.predictedStart]);
+    if (memory.ecoKey !== ecoKey) activity.add({ event: 'eco', source: 'eco', target: ecoPlan.proposedTarget,
+      reason: `${ecoPlan.reason}; start ${ecoPlan.predictedStart ? clock(ecoPlan.predictedStart) : 'unknown'}; demand ${values.heating_demand ?? 'unknown'}%; confidence ${ecoPlan.confidence}`, sent: false }, now);
+    memory.ecoKey = ecoKey;
+  }
 
   const demand = heatDemand(thermostat);
   const roomTemp = roomTemperature(states, s, thermostat);
@@ -341,6 +356,9 @@ function evaluate(states, now = Date.now()) {
     timeZone: tz,
     setup: { thermostat: !!s.thermostat, persons: s.persons.filter((p) => p.counts).length, heatmeisters: s.heatmeisters.length },
     advice,
+    eco: { ...ecoPlan, values, error: ecoHistory.getError(),
+      model: model ? { coolingSamples: model.coolingSamples, heatingSamples: model.heatingSamples, latest: model.latest, loss: model.loss, capacity: model.capacity } : null,
+      evaluation: eco.evaluation(model, memory.ecoWindows || [], now) },
     thermostat,
     presence: { ...who, ...pres, onTheWay: way.people, noPersons },
     schedule: point,
@@ -395,6 +413,8 @@ async function act(states, current, now) {
     try {
       await ha.setTemperature(s.thermostat, st.advice.target, s.thermostat);
       control.recordWrite(memory, st.advice.target, now);
+      // Synchronize HeatMeisters with the successfully applied effective target.
+      st.effectiveSetpoint = st.advice.target;
       lastControl = { at: now, sent: true, why: `set to ${st.advice.target} °C` };
       activity.add({ event: 'sent', target: st.advice.target, source: st.advice.source, reason: st.advice.reason, thermostat: st.thermostat.target, sent: true }, now);
     } catch (err) {
@@ -418,6 +438,7 @@ function watchedIds(states, s) {
   const ids = [];
   if (s.thermostat) ids.push(s.thermostat);
   if (s.room_temperature_source) ids.push(s.room_temperature_source);
+  if (s.eco.enabled) ids.push(...['indoor', 'outdoor', 'heating_demand', 'gas', 'flow', 'return'].map((k) => s.eco[k]).filter(Boolean));
   ids.push('zone.home');
   for (const p of s.persons) {
     ids.push(p.entity_id);
@@ -484,6 +505,7 @@ async function doRefresh() {
     const states = await ha.call({ type: 'get_states' });
     watch(states);
     const now = Date.now();
+    await ecoHistory.update(settings.get().eco, now);
     let st = evaluate(states, now);
     if (options.allow_control && settings.get().thermostat) st = await act(states, st, now);
     if (options.allow_heatmeister_temperature && settings.get().heatmeisters.length) st = await sendRoomTemperature(st, now);

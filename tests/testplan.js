@@ -19,6 +19,8 @@ const VERSION = require(path.join(ROOT, 'smart_heating_planner', 'app', 'package
 
 // The test files, in the order of the plan, with what they cover.
 const FILES = [
+  ['eco.test.js', 'Adaptive Eco Heating', 'Recorder learning, stale readings, deadlines, presence, holds, cold weather, demand, write budgets, comparable gas windows and meter resets.'],
+  ['eco-app.test.js', 'Eco heating in the real app', 'Validated settings, observe without extra commands, adaptive preheat through existing write gates, HeatMeister targets, holds and overnight window bookkeeping.'],
   ['settings.test.js', 'Settings and situations', 'The real app ("Allow control" off) against a fake Home Assistant (tado over HomeKit and Tado CE, Peter, Yvonne and Cheyenne with GPS, router and Bluetooth trackers, three HeatMeisters over MQTT). Everything goes through the same API as the page.'],
   ['control-app.test.js', 'Control (Allow control on)', 'The real app with "Allow control" on: sets the HomeKit thermostat only when the advice changes, keeps a change made by hand, waits between writes, respects the daily limit and survives a failing thermostat.'],
   ['heatmeister-app.test.js', 'HeatMeister temperature (MQTT on)', 'The real app with "Send temperature to HeatMeisters" on: like the Node-RED flow, a room temperature (or the thermostat setpoint, if chosen) goes to "<Name>/temp-ambient-ext" for each chosen HeatMeister; only mqtt.publish to those topics.'],
@@ -39,6 +41,7 @@ const FILES = [
 function runFile(file) {
   const r = spawnSync(process.execPath, ['--test', '--test-reporter=tap', path.join(__dirname, file)], { cwd: ROOT, encoding: 'utf8', timeout: 10 * 60000 });
   const out = `${r.stdout || ''}`;
+  if (r.status !== 0) process.stderr.write(out + (r.stderr || ''));
   const tests = [];
   for (const line of out.split('\n')) {
     // Top-level results only: "ok 3 - name" / "not ok 3 - name".

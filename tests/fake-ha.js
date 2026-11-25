@@ -38,6 +38,8 @@ function freshWorld() {
     failMqtt: false,
     failHmTarget: false,
     failHistory: false,
+    extraStates: [], // synthetic sensors used by Eco tests; no household data
+    ecoHistory: null,
     failNotify: false,
     notifications: [], // { service, title, message, data } sent by the app
     mqtt: {}, // topic -> [payloads] sent by the app
@@ -142,12 +144,13 @@ function states() {
     list.push(...heatmeisterStates(h).map(([id, st, at]) => [h.suffix2 && !keep.test(id) ? `${id}_2` : id, st, at]));
   }
   const now = new Date().toISOString();
-  return list.map(([entity_id, state, attributes]) => ({ entity_id, state: String(state), attributes, last_changed: now, last_updated: now, context: { id: 'x' } }));
+  return [...list.map(([entity_id, state, attributes]) => ({ entity_id, state: String(state), attributes, last_changed: now, last_updated: now, context: { id: 'x' } })), ...w.extraStates];
 }
 
 // A made-up day: every hour a new point; the setpoint 19 by day and 16 at
 // night; the room follows it slowly. Now: the world's own values.
 function history(msg) {
+  if (world.ecoHistory && msg.entity_ids.some((id) => id in world.ecoHistory)) return world.ecoHistory;
   const from = Date.parse(msg.start_time);
   const to = msg.end_time ? Date.parse(msg.end_time) : Date.now();
   const out = {};

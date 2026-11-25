@@ -1,5 +1,29 @@
 # Smart Heating Planner
 
+## Adaptive Eco Heating
+
+Open the **Eco heating** tab. The feature is **off by default**, including on dev. Enable it and start with **Observe only**: normal heating continues unchanged and Eco sends no additional commands. **Adaptive heating** changes the advice; actual thermostat writes still require **Allow control**. No automations, helpers, scripts or Node-RED changes are required.
+
+Choose indoor and outdoor temperature sensors in °C and a heating-demand sensor in %. Cumulative gas in m³ is optional; flow and return temperature sensors in °C are optional and shown for context. Enter existing `sensor.*` entity IDs. The server validates these settings. Missing, unknown, wrong-unit and older-than-30-minute live readings block adaptive preheating. Sensors that report infrequently may therefore remain unsuitable even while their state looks unchanged.
+
+**Preferred heating demand** is 20–80%, default 50%. It is a soft feedback target, not a boiler modulation setting. **Maximum setpoint step** is 0.5°C (default) or 1°C. Steps wait at least ten minutes and pause above preferred demand plus ten percentage points. A comfort fallback may use the full scheduled target in one change. All existing two-minute write intervals and daily limits still apply; a shortage of remaining writes causes an early full-target fallback, never a bypass of those limits.
+
+### Learning and comfort
+
+Every fifteen minutes, the app reads the last seven days of HA Recorder history. It uses ten-minute observations with numeric indoor/outdoor temperatures and demand, rejects large changes and long gaps, and learns heat loss relative to the indoor/outdoor difference plus heating capacity adjusted for demand. The model uses an upper cooling-loss estimate and a lower heating-capacity estimate. At least twelve heating and twelve cooling samples are required, with recent observations of both within 24 hours. Confidence is low below twelve samples, medium from twelve and high from thirty-six of each. Confidence describes sample availability; it is not a measured probability of reaching comfort.
+
+The model integrates heat loss per minute to predict gradual and full-heating start times, with fifteen minutes of comfort margin and at most four hours of preheating. It only prepares the **next rising switch point**. The current night setback remains in force until that window. Existing presence rules apply: someone must effectively be home, approaching, or the next switch point must have Preheat enabled. Holds always take priority. A falling switch point is never raised by Eco.
+
+Normal advice is retained when readings/history are missing, stale, unsupported or outside the learned weather range (more than 5°C beyond observed heating weather). Once inside an eligible predicted preheat window, the full upcoming comfort target is used if gradual heating cannot meet the deadline or the write budget is insufficient. At the scheduled time, normal schedule logic resumes. The app never changes the thermostat mode. HeatMeister room targets follow the successfully applied effective setpoint under their existing option and range limits.
+
+### Evaluation and limitations
+
+The page shows predicted start, proposed target, fallback reason, demand, confidence, sample counts, latest paired observations and optional flow/return temperatures. Changes to the Eco plan also appear in Activity. Recorder failures invalidate the cached model and are shown on the page. Learning restarts from Recorder after an app restart.
+
+Gas evaluation covers **22:00 to 12:00 in Home Assistant's timezone**, including the whole night and morning. Local window bookkeeping is saved with existing app memory. A window requires continuous app observation and Allow control; gaps over thirty minutes, late starts, manual holds and settings changes exclude it. Missing gas/weather/indoor data and meter resets also exclude it. Measurements are limited to the available seven-day Recorder range. Observe mode is the normal comparison strategy.
+
+The latest complete adaptive window is compared only with a normal window using the same schedule/settings and sensor choices, mean outdoor temperature within 2°C and mean indoor temperature within 1°C. The table shows actual totals and mean temperatures. Any adaptive-minus-normal difference is descriptive: domestic hot water is not separated, and occupancy, wind, sun and household changes can confound the result. **No gas saving is claimed.** Flow/return values are diagnostic context only; the app does not infer boiler efficiency from them. The model remains experimental and comfort cannot be guaranteed when the plant lacks capacity or writes are blocked.
+
 Heats the house on a week schedule and on who is home, with a tado° thermostat and optional HeatMeister radiator fans.
 
 By default the app only **watches**: it shows what it would do and logs it on the Activity page, but sends nothing. Turn on **Allow control** in the Configuration tab to let it set the thermostat. The HeatMeisters run by themselves; the app shows what they do and, with **Send temperature to HeatMeisters** on, sends them the room temperature over MQTT; with **Set HeatMeister room target** on, it keeps their room target equal to the thermostat's setpoint.

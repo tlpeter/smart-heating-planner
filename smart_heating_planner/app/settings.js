@@ -10,6 +10,7 @@ const { DATA_DIR } = require('./options');
 const schedule = require('./schedule');
 const { normalisePersons } = require('./presence');
 const { defaultTopic } = require('./heatmeister');
+const eco = require('./eco');
 
 const FILE = path.join(DATA_DIR, 'settings.json');
 const MAX_HEATMEISTERS = 6;
@@ -18,6 +19,7 @@ const MAX_CHART_SENSORS = 6; // 8 lines in all: as many as there are clear colou
 
 function defaults() {
   return {
+    eco: eco.defaults(),
     thermostat: '',
     persons: [],
     // The schedule only counts when someone is home (off: always the schedule).
@@ -52,6 +54,7 @@ function load() {
   const out = {
     ...base,
     ...saved,
+    eco: { ...base.eco, ...(saved.eco || {}) },
     tracker_types: { ...base.tracker_types, ...(saved.tracker_types || {}) },
     persons: normalisePersons(saved.persons),
   };
@@ -99,6 +102,32 @@ function validate(input) {
   }
   const old = get();
   const v = JSON.parse(JSON.stringify(old));
+
+  if ('eco' in input) {
+    const e = input.eco;
+    if (!e || typeof e !== 'object' || Array.isArray(e)) errors.push('Adaptive Eco Heating must be an object');
+    else {
+      const out = { ...eco.defaults(), ...v.eco };
+      if ('enabled' in e) {
+        if (typeof e.enabled !== 'boolean') errors.push('Enable Adaptive Eco Heating must be true or false');
+        else out.enabled = e.enabled;
+      }
+      if ('mode' in e) {
+        if (!['observe', 'adaptive'].includes(e.mode)) errors.push('Eco mode must be observe or adaptive');
+        else out.mode = e.mode;
+      }
+      if ('demand' in e) out.demand = num(e.demand, 20, 80, 'Preferred heating demand', errors, 50);
+      if ('step' in e) {
+        if (![0.5, 1].includes(e.step)) errors.push('Maximum setpoint step must be 0.5 or 1');
+        else out.step = e.step;
+      }
+      for (const key of ['indoor', 'outdoor', 'heating_demand', 'gas', 'flow', 'return']) {
+        if (key in e) out[key] = entityOrEmpty(e[key], ['sensor'], `Eco ${key}`, errors);
+      }
+      if (out.enabled && (!out.indoor || !out.outdoor || !out.heating_demand)) errors.push('Choose indoor, outdoor and heating demand sensors before enabling Eco');
+      v.eco = out;
+    }
+  }
 
   if ('thermostat' in input) v.thermostat = entityOrEmpty(input.thermostat, ['climate'], 'Thermostat', errors);
   if ('persons' in input) {

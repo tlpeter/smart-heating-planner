@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0-dev — 2026-11-25
+
+- Add Adaptive Eco Heating and a Mushroom-style Eco settings page (issue #12). It starts off and in observe mode.
+- Learn heating and cooling from Recorder, predict weather-aware preheating and use gradual setpoints with comfort fallbacks. Keep holds, presence, write limits, Allow control and HeatMeister options.
+- Show confidence, reasons, optional flow/return readings and full overnight/morning gas comparisons. Missing data and meter resets do not count as savings.
+- Add unit and real-app tests and update the manual.
+
 ## 0.6.1-dev
 
 - Smart Heating Planner follows your Home Assistant theme, including its colours, card styling, font and light or dark mode, just like Smart Charging Planner.

@@ -54,13 +54,14 @@ function fillIcons(root = document) {
 }
 // Colour and icon of the advice, per source.
 const SOURCE_LOOK = {
+  eco: ['c-green', 'radiator'],
   schedule: ['c-orange', 'fire'], preheat: ['c-orange', 'fire'], approaching: ['c-orange', 'coming'],
   hold: ['c-amber', 'hand'], away: ['c-blue', 'away'],
 };
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_NAMES = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
-const EVENT = { advice: 'Advice', sent: 'Sent', manual: 'Changed by hand', error: 'Error', 'hm-target': 'HeatMeister target' };
-const SOURCE = { schedule: 'Schedule', away: 'Away', preheat: 'Preheat', approaching: 'On the way', hold: 'Manual hold', heatmeister: 'HeatMeister' };
+const EVENT = { advice: 'Advice', sent: 'Sent', manual: 'Changed by hand', error: 'Error', eco: 'Eco heating', 'hm-target': 'HeatMeister target' };
+const SOURCE = { schedule: 'Schedule', away: 'Away', preheat: 'Preheat', approaching: 'On the way', hold: 'Manual hold', heatmeister: 'HeatMeister', eco: 'Eco heating' };
 
 let settings = null;
 let entities = null;
@@ -103,6 +104,7 @@ function showPage(name) {
   if (name === 'activity') loadActivity();
   if (name === 'settings') { loadSettingsPage(); loadNotify(); }
   if (name === 'schedule') renderSchedule();
+  if (name === 'eco') loadEcoPage();
   if (name === 'home') drawChart();
 }
 document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => showPage(b.dataset.page)));
@@ -113,9 +115,10 @@ document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () 
 // the week schedule and the notifications count; the hold on Home does not.
 unsavedGuard.init({
   nav: '.tab, [data-goto]',
-  scope: (form) => form.id === 'settings-form',
+  scope: (form) => ['settings-form', 'eco-form'].includes(form.id),
   onDiscard: (g) => {
     if (g.id === 'settings-form') loadSettingsPage();
+    if (g.id === 'eco-form') loadEcoPage();
     if (g.dataset.guard === 'Week schedule') { draft = null; renderSchedule(); }
     if (g.dataset.guard === 'Notifications') loadNotify();
   },
@@ -134,6 +137,7 @@ function renderStatus(s) {
     return;
   }
   tz = s.timeZone;
+  renderEco(s.eco);
   showError(s.error ? `Last refresh failed: ${s.error}` : '');
   $('banner').classList.toggle('hidden', s.mode === 'control');
   $('banner-control').classList.toggle('hidden', s.mode !== 'control');
@@ -468,6 +472,41 @@ $('settings-form').addEventListener('submit', async (e) => {
   } catch (err) {
     $('settings-msg').textContent = err.message;
   }
+});
+
+// ---------------------------------------------------------------- eco heating
+const ECO_SENSORS = ['indoor', 'outdoor', 'heating_demand', 'gas', 'flow', 'return'];
+function loadEcoPage() {
+  const e = settings.eco;
+  $('eco-enabled').checked = e.enabled;
+  $('eco-mode').value = e.mode;
+  $('eco-preferred').value = e.demand;
+  $('eco-step').value = e.step;
+  for (const k of ECO_SENSORS) $(`eco-${k}`).value = e[k];
+}
+function renderEco(e) {
+  if (!e) return;
+  $('eco-reason').textContent = e.reason;
+  $('eco-start').textContent = e.predictedStart ? clock(e.predictedStart) : '–';
+  $('eco-demand').textContent = e.demand === null ? 'Unknown' : `${e.demand}%`;
+  $('eco-confidence').textContent = e.confidence;
+  const m = e.model;
+  $('eco-samples').textContent = m ? `${m.heatingSamples} heating / ${m.coolingSamples} cooling samples. Latest paired observations: ${m.latest ? new Date(m.latest).toLocaleString('en-GB', { timeZone: tz }) : 'unknown'}. Full heating start: ${e.normalStart ? clock(e.normalStart) : 'unknown'}. Proposed target: ${t1(e.proposedTarget)}.` : 'Waiting for Recorder history.';
+  $('eco-readings').textContent = ['indoor', 'outdoor', 'flow', 'return'].map((k) => `${k}: ${t1(e.values[k])}`).join(' · ');
+  $('eco-error').textContent = e.error || '';
+  $('eco-evaluation').textContent = e.evaluation.reason + (e.evaluation.differenceM3 === null ? '' : ` Adaptive minus normal: ${e.evaluation.differenceM3.toFixed(3)} m³.`);
+  $('eco-windows').innerHTML = e.evaluation.windows.map((w) => `<tr><td>${esc(new Date(w.from).toLocaleDateString('en-GB', { timeZone: tz }))}</td><td>${esc(w.strategy)}</td><td>${w.gas.toFixed(3)}</td><td>${t1(w.outdoor)}</td><td>${t1(w.indoor)}</td></tr>`).join('') || '<tr><td colspan="5">No complete measurements yet.</td></tr>';
+}
+$('eco-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const eco = { enabled: $('eco-enabled').checked, mode: $('eco-mode').value,
+    demand: Number($('eco-preferred').value), step: Number($('eco-step').value) };
+  for (const k of ECO_SENSORS) eco[k] = $(`eco-${k}`).value.trim();
+  try {
+    settings = await api('api/settings', { method: 'POST', body: { eco } });
+    $('eco-msg').textContent = 'Saved.';
+    refreshStatus();
+  } catch (err) { $('eco-msg').textContent = err.message; }
 });
 
 // ---------------------------------------------------------------- notifications

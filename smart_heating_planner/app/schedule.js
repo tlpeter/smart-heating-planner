@@ -145,4 +145,4 @@ function current(schedule, now, timeZone) {
   return { current: strip(cur), next: { ...strip(nxt), inMinutes, at } };
 }
 
-module.exports = { DAYS, MIN_TEMP, MAX_TEMP, defaultSchedule, validate, current, toMinutes, toTime, roundTemp, localParts };
+module.exports = { DAYS, MIN_TEMP, MAX_TEMP, defaultSchedule, validate, current, toMinutes, toTime, roundTemp, localParts, zonedTime };

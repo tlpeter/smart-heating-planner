@@ -1,5 +1,7 @@
 # Smart Heating Planner
 
+Adaptive Eco Heating is available for testing on `dev` (issue [#12](https://github.com/tlpeter/smart-heating-planner/issues/12)). Open **Eco heating** to choose indoor/outdoor temperature and heating-demand sensors. It is off by default; start with **Observe only**. The app learns from Recorder before suggesting weather-aware preheating. Adaptive heating uses small setpoint steps, with normal comfort heating when a deadline is at risk. Gas comparisons include the full night and morning and do not establish savings. See the [manual](smart_heating_planner/DOCS.md#adaptive-eco-heating).
+
 A Home Assistant app that heats your house on a week schedule and on who is home, with a tado° thermostat and optional HeatMeister radiator fans.
 
 > Status: early development. By default the app only **watches**: it shows what it *would* do. With **Allow control** on (Configuration tab) it sets the thermostat itself. The HeatMeisters run by themselves; the app shows what they do and can send them the room temperature over MQTT and keep their room target equal to the thermostat's setpoint. See [ROADMAP.md](ROADMAP.md).

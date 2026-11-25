@@ -16,6 +16,7 @@
         <button class="tab" data-page="schedule" role="tab"><i data-icon="schedule"></i><span>Schedule</span></button>
         <button class="tab" data-page="activity" role="tab"><i data-icon="activity"></i><span>Activity</span></button>
         <button class="tab" data-page="settings" role="tab"><i data-icon="settings"></i><span>Settings</span></button>
+        <button class="tab" data-page="eco" role="tab"><i data-icon="radiator"></i><span>Eco heating</span></button>
       </nav>
     </header>
 
@@ -150,6 +151,54 @@
             <tbody id="activity"></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <section id="page-eco" class="page hidden">
+      <div class="card">
+        <h2><span class="shape sm c-green" data-icon="radiator"></span>Adaptive Eco Heating</h2>
+        <p id="eco-reason" aria-live="polite">Waiting for observations…</p>
+        <div class="tiles">
+          <div class="tile"><span>Predicted start</span><b id="eco-start">–</b></div>
+          <div class="tile"><span>Heating demand</span><b id="eco-demand">–</b></div>
+          <div class="tile"><span>Confidence</span><b id="eco-confidence">Low</b></div>
+        </div>
+        <p id="eco-samples" class="muted small"></p>
+        <p id="eco-readings" class="muted small"></p>
+        <p id="eco-error" class="small"></p>
+      </div>
+      <form id="eco-form" data-guard="Eco heating settings">
+        <div class="card">
+          <h2><span class="shape sm c-orange" data-icon="settings"></span>Eco heating settings</h2>
+          <label class="switch"><input id="eco-enabled" type="checkbox"><span>Enable Adaptive Eco Heating</span></label>
+          <div class="grid2">
+            <label>Operating mode<select id="eco-mode"><option value="observe">Observe only (default)</option><option value="adaptive">Adaptive heating</option></select></label>
+            <label>Preferred heating demand (%)<input id="eco-preferred" type="number" min="20" max="80" step="1" value="50"></label>
+            <label>Maximum setpoint step (°C)<select id="eco-step"><option value="0.5">0.5</option><option value="1">1</option></select></label>
+          </div>
+          <p class="muted small">The preferred demand is a soft target. It does not set boiler modulation. Observe only leaves the normal heating plan in control. Adaptive heating also needs Allow control.</p>
+          <p class="muted small">Steps are at least ten minutes apart. Comfort deadlines can require the full target in one change. Holds, presence, night setback and existing write limits still apply.</p>
+        </div>
+        <div class="card">
+          <h2><span class="shape sm c-blue" data-icon="thermostat"></span>Home Assistant sensors</h2>
+          <p class="muted small">Choose numeric sensors: temperatures in °C, demand in %, cumulative gas in m³. Readings older than 30 minutes are treated as unknown. No changes to Home Assistant are needed.</p>
+          <div class="grid2">
+            <label>Indoor temperature<input id="eco-indoor" type="text" placeholder="sensor.indoor_temperature" maxlength="200"></label>
+            <label>Outdoor temperature<input id="eco-outdoor" type="text" placeholder="sensor.outdoor_temperature" maxlength="200"></label>
+            <label>Heating demand<input id="eco-heating_demand" type="text" placeholder="sensor.heating_demand" maxlength="200"></label>
+            <label>Cumulative gas (optional)<input id="eco-gas" type="text" placeholder="sensor.gas_total" maxlength="200"></label>
+            <label>Flow temperature (optional)<input id="eco-flow" type="text" placeholder="sensor.flow_temperature" maxlength="200"></label>
+            <label>Return temperature (optional)<input id="eco-return" type="text" placeholder="sensor.return_temperature" maxlength="200"></label>
+          </div>
+          <p class="muted small">Learning uses seven days of Recorder history. Keep these sensors in Recorder. At least 12 heating and 12 cooling samples, both from the last 24 hours, are needed before adaptive preheating.</p>
+        </div>
+        <div class="actions sticky"><button class="btn primary" type="submit">Save Eco settings</button><span id="eco-msg" class="small"></span></div>
+      </form>
+      <div class="card">
+        <h2><span class="shape sm c-purple" data-icon="chart"></span>Overnight and morning gas</h2>
+        <p id="eco-evaluation" class="small">No comparable measurements yet.</p>
+        <div class="table-wrap"><table><thead><tr><th>Window (22:00–12:00)</th><th>Strategy</th><th>Gas (m³)</th><th>Outdoor</th><th>Indoor</th></tr></thead><tbody id="eco-windows"></tbody></table></div>
+        <p class="muted small">Includes the entire night and morning, including earlier heating. Gaps, meter resets, holds, setting changes and interrupted observation exclude a window. Hot water use is unknown, so a measured difference does not prove a saving.</p>
       </div>
     </section>
 
